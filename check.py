@@ -26,6 +26,9 @@ Maintenance records:
 * 修复 check_file_content函数 列表长度范围检查参数传递不准确问题
 * 修复 list_num_ban函数 禁用值为单个数值时报错问题
 * 修复 check_file_content函数 检查数值禁用值及数值范围检查时错误传参问题
+2021.11.2
+* 修复 _get_encoding函数 所有编码都是兼容ASCII，解决显示iso-8859-1与索引打印ASCII不符的问题，统一ASCII码以GBK格式读入
+* 优化 list_dup函数，当list和转化set后长度一致时，直接返回0，提高检查速度
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -110,8 +113,8 @@ def _get_encoding(in_file, confidence: float = 0.6, line=3000):
         format_res = chardet.detect(test_data)
         if format_res["confidence"] > confidence:
             code_format = format_res["encoding"].upper()
-            if re.findall('iso-8859', code_format.lower()):
-                code_format = "GBK"  # 中文语境下包含各种特殊符号
+            if re.findall('iso-8859|ascii', code_format.lower()):
+                code_format = "GBK"  # 中文语境下包含各种特殊符号 # 所有编码都是兼容ASCII,统一为GBK后续读入
         elif format_res["confidence"] > 0:
             code_format = "GBK"  # 可能会报错
     return code_format
@@ -661,14 +664,14 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     :param do_convert: 布尔值，当检查到编码格式不符合期望编码格式时，是否进行转码，默认True
     :param suffix_list: 字符串/字符串列表，允许使用的格式名，不区分大小写，默认txt
     :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
-    :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写，默认[UTF-8, ASCII]
+    :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写，默认[UTF-8,]，不建议使用ASCII
     :param out_file: 字符串，输出对象,例如："D:\b.txt"，默认在in_file后添加".convert"
     :param out_code: 字符串，输出文件编码，默认UTF-8
     :param add_info: 字符串，附加信息
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     if allowed_encode is None:
-        allowed_encode = ["UTF-8", "ASCII"]
+        allowed_encode = ["UTF-8",]
     try:
         error_list = []
         if ck_exist:
@@ -692,15 +695,13 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
             if err_msg is None:
                 error_list.append(f"{add_info}推测{os.path.basename(in_file)}文件为二进制文件（如xlsx），无法识别文件编码及转码")
             elif do_convert:
-                in_code = "UTF-8"
-                if err_msg:
-                    in_code = err_msg
+                in_code = err_msg
                 err_msg = file_convert(in_file=in_file, out_file=out_file,
                                        in_code=in_code, out_code=out_code)
                 if err_msg:
                     error_list.append(f"{add_info}{err_msg}")
             elif err_msg and not do_convert:
-                error_list.append(f"{add_info}文件编码格式为：{err_msg}，不符合要求")
+                error_list.append(f"{add_info}推测文件编码格式为{err_msg}或ASCII，不符合要求，转换为{allowed_encode}后重试")
         if len(error_list) == 0:
             return 0
         else:
@@ -967,6 +968,8 @@ def list_dup(in_list, key='元素', add_info=""):
     try:
         in_list = list(map(lambda x: str(x), in_list))
         in_list = list(map(lambda x: x.strip(), in_list))
+        if len(in_list) == len(set(in_list)):
+            return 0
         list_count = dict(Counter(in_list))
         dup_item = [key for key, value in list_count.items() if value > 1]
         if not dup_item:
