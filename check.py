@@ -29,6 +29,10 @@ Maintenance records:
 2021.11.2
 * 修复 _get_encoding函数 所有编码都是兼容ASCII，解决显示iso-8859-1与索引打印ASCII不符的问题，统一ASCII码以GBK格式读入
 * 优化 list_dup函数，当list和转化set后长度一致时，直接返回0，提高检查速度
+* 优化 check_file_content函数 新增pre_check参数，使pre_check_file_content函数调用可控，避免外部调用后二次检查
+2021.11.3
+* 修复 check_com_line函数报错语提示行列数提示不准确bug
+** 修复 com_list函数报错检查错误返回bug
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -671,7 +675,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     if allowed_encode is None:
-        allowed_encode = ["UTF-8",]
+        allowed_encode = ["UTF-8", ]
     try:
         error_list = []
         if ck_exist:
@@ -1175,7 +1179,7 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
             in_list = in_list[1:]
         err_list = []
         for i in range(1, len(in_list) + 1):
-            msg = num_ban(num=in_list[i-1], ban_num=ban_num, add_info="")
+            msg = num_ban(num=in_list[i - 1], ban_num=ban_num, add_info="")
             if msg:
                 err_list.append(i)
         if err_list:
@@ -1395,7 +1399,7 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
 
 
 @call_log
-def check_file_content(in_file, out_dir, new_file=None,
+def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                        sep="\t", rm_blank=True, fill_null=False, null_list=None,
                        ck_sep=False, sep_r=r'\t',
                        ck_header=False, ck_line_dup=False,
@@ -1430,11 +1434,12 @@ def check_file_content(in_file, out_dir, new_file=None,
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param out_dir: 字符串，处理后对象输出目录，推荐os.path.join(args.outdir,"tmp/analysis")
     :param new_file: 字符串，处理后对象名，将保存到out_dir目录下,默认与原文件同名
+    :param pre_check: 布尔值，是否调用pre_check_file_content进行预处理，默认True
     :param sep: 字符串，分隔符，默认"\t"
     :param rm_blank: 布尔值，检查时是否移除该列元素前后空白，默认True
     :param fill_null: 布尔值，检查时是否将缺失数据统一替换为NA，默认True
     :param null_list: 字符串列表，检查时指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
-    :param ck_header: 布尔值，是否检查标题行，初查，比较首行个数是否少于尾行，该功能已内置于check_file_content_pre，默认False
+    :param ck_header: 布尔值，是否检查标题行，初查，比较首行个数是否少于尾行，该功能已内置于pre_check_file_content，默认False
     :param ck_sep: 布尔值，是否检查分隔符规范，行数较多时，该步骤为耗时步骤，默认False
     :param sep_r: 字符串，纯文本读入的分隔符，含有与正则有关的字符应在字符串前加r,或将字符使用'\'转义,默认r'\t'
     :param ck_line_dup: 布尔值，是否检查行重复，默认False
@@ -1509,10 +1514,11 @@ def check_file_content(in_file, out_dir, new_file=None,
         else:
             new_file = os.path.join(os.path.abspath(out_dir), os.path.basename(new_file))
             # new_file = os.path.join(os.path.dirname(os.path.abspath(in_file)), os.path.basename(new_file))  # 同路径
-        err_msg = pre_check_file_content(in_file=in_file, out_dir=out_dir, new_file=new_file, sep=sep, encoding='utf-8')
-        if err_msg:
-            error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
-            return error_list
+        if pre_check:
+            err_msg = pre_check_file_content(in_file, out_dir=out_dir, new_file=new_file, sep=sep, encoding='utf-8')
+            if err_msg:
+                error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
+                return error_list
         in_file = new_file  # 分隔符检查前，需确保使用去除空行及元素前后空白的新文件
         row_number = get_row_num(in_file=in_file)
         col_number = get_col_num(in_file=in_file, sep=sep)
@@ -1788,10 +1794,11 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
             diff1 = list(set1.difference(set2))
             if ck_1_in_2 and diff1:
                 return f"{add_info}发现多出的{key}，分别为{_join_str(diff1)}"
-            diff2 = list(set2.difference(set1))
-            msg = (f"{add_info}发现不同的{key}，分别为\n"
-                   f"\t{_join_str(diff1)}\n\t{_join_str(diff2)}。")
-            return msg
+            elif not ck_1_in_2:
+                diff2 = list(set2.difference(set1))
+                return f"{add_info}发现不同的{key}，分别为:{_join_str(diff1)};{_join_str(diff2)}。"
+            else:
+                return 0
     except Exception as e:
         print(e)
         return f"{add_info}比较两列表内容时出错"
@@ -1860,7 +1867,7 @@ def check_com_line(in_file1, in_file2,
             msg = com_list(list1=in_list1, list2=in_list2, order_strict=order_strict, rm_first=rm_first,
                            ck_1_in_2=ck_1_in_2, key=key)
             if msg != 0:
-                return f'{add_info}{in_file_name1}第{file1_no}{dim1}与{in_file_name2}第{file1_no}{dim2}{msg}'
+                return f'{add_info}{in_file_name1}第{file1_no}{dim1}与{in_file_name2}第{file2_no}{dim2}{msg}'
             else:
                 return 0
     except Exception as e:
