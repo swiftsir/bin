@@ -31,8 +31,10 @@ Maintenance records:
 * 优化 list_dup函数，当list和转化set后长度一致时，直接返回0，提高检查速度
 * 优化 check_file_content函数 新增pre_check参数，使pre_check_file_content函数调用可控，避免外部调用后二次检查
 2021.11.3
-* 修复 check_com_line函数报错语提示行列数提示不准确bug
-** 修复 com_list函数报错检查错误返回bug
+* 修复 check_com_line函数 报错语提示行列数提示不准确bug
+** 修复 com_list函数 报错检查错误返回bug
+2021.11.10
+* 修复 check_file_base函数 文件编码格式符合要求时意外报错的bug
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -596,8 +598,8 @@ def file_convert(in_file, in_code: str, out_file=None, out_code="UTF-8", add_inf
             flag += '1'
             out_file = str(out_file) + '.convert'
         in_file_name = os.path.basename(in_file)
-        if not in_code:
-            return f"{add_info}{in_file_name}编码格式不被支持，请转为{out_code}编码后重试"
+        # if not in_code:
+        #     return f"{add_info}{in_file_name}编码格式不被支持，请转为{out_code}编码后重试"
         in_code = in_code.upper()
         out_code = out_code.upper()
         try:
@@ -656,7 +658,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
                     out_file=None, out_code="UTF-8",
                     add_info=""):
     """
-    文件基础检查（存在，后缀，空文件，大小，编码）,提供转码选项，
+    文件基础检查（存在，后缀，空文件，大小，编码）,提供转码选项，仅当提供一种allowed_encode时有效
     注意：文件编码检查及转码仅对非二进制文件有效，xlsx文件推荐使用file_xlsx2txt函数转换后进行文件检查
     注意：如果out_file与in_file同路径且同名，将覆盖原文档
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -665,7 +667,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     :param ck_null: 布尔值，是否检查空文件，默认True
     :param ck_size: 布尔值，是否检查大小，默认True
     :param ck_encoding: 布尔值，是否检查编码格式，默认True
-    :param do_convert: 布尔值，当检查到编码格式不符合期望编码格式时，是否进行转码，默认True
+    :param do_convert: 布尔值，当检查到编码格式不符合期望编码格式时，是否进行转码，仅当提供一种allowed_encode时有效，默认True
     :param suffix_list: 字符串/字符串列表，允许使用的格式名，不区分大小写，默认txt
     :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
     :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写，默认[UTF-8,]，不建议使用ASCII
@@ -676,6 +678,8 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     """
     if allowed_encode is None:
         allowed_encode = ["UTF-8", ]
+    if isinstance(allowed_encode, str):
+        allowed_encode = [allowed_encode.upper(), ]
     try:
         error_list = []
         if ck_exist:
@@ -698,8 +702,11 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
             err_msg = file_encoding(in_file=in_file, allowed_encode=allowed_encode)
             if err_msg is None:
                 error_list.append(f"{add_info}推测{os.path.basename(in_file)}文件为二进制文件（如xlsx），无法识别文件编码及转码")
-            elif do_convert:
-                in_code = err_msg
+            elif do_convert and len(allowed_encode) == 1:
+                if err_msg:
+                    in_code = err_msg
+                else:
+                    in_code = allowed_encode[0]
                 err_msg = file_convert(in_file=in_file, out_file=out_file,
                                        in_code=in_code, out_code=out_code)
                 if err_msg:
