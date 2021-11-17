@@ -35,6 +35,14 @@ Maintenance records:
 ** 修复 com_list函数 报错检查错误返回bug
 2021.11.10
 * 修复 check_file_base函数 文件编码格式符合要求时意外报错的bug
+2021.11.12
+* 新增 _get_encoding2函数，提供linux.file命令获取文件编码的方式
+** 修复 file_encoding、check_file_base函数，当utf8文件存在少量中文偶发性出现编码识别错误的问题，提供use_1参数，切换编码识别方法
+* 修复 num_range函数 报错语上下限相反的错误
+* 修复 check_str、str_chinese函数 检查中文字符报错语错误
+2021.11.15
+* 修复 部分函数列表中存在数值及部分数值未转化字符串引起的报错问题
+* 修复 list_num_range、check_file_content函数报错语上下限相反的问题
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -107,7 +115,7 @@ def _convert_size(size_str):
 
 def _get_encoding(in_file, confidence: float = 0.6, line=3000):
     """
-    推测文件编码格式
+    推测文件编码格式，（chardet）
     :param in_file: 字符串，文件名
     :param confidence: 置信度，含有中文的文件建议降低置信度，默认0.6
     :param line: 读入行数，小文件为提升准确性建议设置为-1，即全部读入，默认3000
@@ -123,6 +131,16 @@ def _get_encoding(in_file, confidence: float = 0.6, line=3000):
                 code_format = "GBK"  # 中文语境下包含各种特殊符号 # 所有编码都是兼容ASCII,统一为GBK后续读入
         elif format_res["confidence"] > 0:
             code_format = "GBK"  # 可能会报错
+    return code_format
+
+
+def _get_encoding2(in_file):
+    """
+    推测文件编码格式，备选（linux file）
+    :param in_file: 字符串，文件名
+    :return: 正常返回推测的文件编码格式（大写）
+    """
+    code_format = os.popen(f"file --mime-encoding {in_file}").read().rstrip('\n').split(':')[1].upper()
     return code_format
 
 
@@ -285,7 +303,7 @@ def str_chinese(in_str, other_str="", add_info=''):
         str_list = []
         for i_str in in_str:
             if "\u4e00" <= i_str <= "\u9fa5":
-                str_list.append(in_str)
+                str_list.append(i_str)
         if len(str_list) != 0:
             return f'{add_info}{s_str}中发现中文字符：{_join_str(str_list)}'
         else:
@@ -311,7 +329,7 @@ def str_ban(in_str, ban_list=None, other_str="", add_info=""):
             ban_list = []
         error_list = []
         for i in ban_list:
-            if i in in_str:
+            if str(i) in in_str:
                 error_list.append(i)
         if not error_list:
             return 0
@@ -398,7 +416,7 @@ def num_range(num: float, min_num=float('-inf'), max_num=float('inf'), add_info=
         else:
             min_num = '负无穷' if min_num == float('-inf') else min_num
             max_num = '正无穷' if max_num == float('inf') else max_num
-            return f"{add_info}上限为{min_num}，下限为{max_num}，给定数值{num}超出了界限"
+            return f"{add_info}下限为{min_num}，上限为{max_num}，给定数值{num}超出了界限"
     except Exception as e:
         print(e)
         return f"{add_info}数值范围检查时出错"
@@ -554,11 +572,12 @@ def file_size(in_file, max_size="50M", add_info=""):
 
 
 @call_log
-def file_encoding(in_file, allowed_encode: list = None, add_info=""):
+def file_encoding(in_file, allowed_encode: list = None, use_1=True, add_info=""):
     """
     检查编码格式是否在允许范围内（默认UTF-8）（二进制文件如xlsx，无法检测文件编码）
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写,默认UTF-8
+    :param use_1: 布尔值，默认True，表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
     :param add_info: 字符串，附加信息
     :return: 范围内返回0，范围外返回字符串，推测的文件编码格式（大写），二进制文件返回None
     """
@@ -569,7 +588,10 @@ def file_encoding(in_file, allowed_encode: list = None, add_info=""):
             allowed_encode = [allowed_encode.upper(), ]
         else:
             allowed_encode = list(map(lambda x: x.upper(), allowed_encode))
-        doc_encoding = _get_encoding(in_file)
+        if use_1:
+            doc_encoding = _get_encoding(in_file)
+        else:
+            doc_encoding = _get_encoding2(in_file)
         if doc_encoding in allowed_encode:
             return 0
         else:
@@ -580,11 +602,11 @@ def file_encoding(in_file, allowed_encode: list = None, add_info=""):
 
 
 @call_log
-def file_convert(in_file, in_code: str, out_file=None, out_code="UTF-8", add_info=""):
+def file_convert(in_file, in_code: str = "UTF-8", out_file=None, out_code="UTF-8", add_info=""):
     """
     文件编码转换
     :param in_file: 字符串，输入对象，例如："D:\a.txt"
-    :param in_code: 字符串，输入文件编码，不区分大小写，必需参数
+    :param in_code: 字符串，输入文件编码，不区分大小写，默认"UTF-8"，云平台前端限制：txt文件仅UTF-8及UTF-8-BOM可上传
     :param out_file: 字符串，输出对象，例如："D:\b.txt"，默认在in_file后添加".convert"
     :param out_code: 字符串，输出文件编码，目标格式，不区分大小写，默认"UTF-8"
     :param add_info: 字符串，附加信息
@@ -651,7 +673,7 @@ def file_xlsx2txt(in_file, out_file: str = None, sheet_no=1, sep="\t", na_values
 
 @call_log
 def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
-                    ck_size=True, ck_encoding=True, do_convert=True,
+                    ck_size=True, ck_encoding=True, use_1=True, do_convert=True,
                     suffix_list: list = None,
                     max_size="50M",
                     allowed_encode: list = None,
@@ -667,6 +689,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     :param ck_null: 布尔值，是否检查空文件，默认True
     :param ck_size: 布尔值，是否检查大小，默认True
     :param ck_encoding: 布尔值，是否检查编码格式，默认True
+    :param use_1: 布尔值，默认True，表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
     :param do_convert: 布尔值，当检查到编码格式不符合期望编码格式时，是否进行转码，仅当提供一种allowed_encode时有效，默认True
     :param suffix_list: 字符串/字符串列表，允许使用的格式名，不区分大小写，默认txt
     :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
@@ -699,12 +722,13 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_encoding:
-            err_msg = file_encoding(in_file=in_file, allowed_encode=allowed_encode)
+            err_msg = file_encoding(in_file=in_file, allowed_encode=allowed_encode, use_1=use_1)
             if err_msg is None:
                 error_list.append(f"{add_info}推测{os.path.basename(in_file)}文件为二进制文件（如xlsx），无法识别文件编码及转码")
             elif do_convert and len(allowed_encode) == 1:
                 if err_msg:
-                    in_code = err_msg
+                    in_code = err_msg  # 当UTF-8文件存在少量中文或特殊符号时，使用use_1=True可能存在识别不准确的问题
+                    # in_code = "UTF-8"  # 云平台前端限制txt文件编码仅可为UTF-8或UTF-8-BOM，这里可默认UTF-8
                 else:
                     in_code = allowed_encode[0]
                 err_msg = file_convert(in_file=in_file, out_file=out_file,
@@ -1162,7 +1186,7 @@ def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_firs
         if err_list:
             min_num = '负无穷' if min_num == float('-inf') else min_num
             max_num = '正无穷' if max_num == float('inf') else max_num
-            return f"{add_info}第{_join_str(err_list)}个{key}超出界限，上限为{min_num}，下限为{max_num}"
+            return f"{add_info}第{_join_str(err_list)}个{key}超出界限，下限为{min_num}，上限为{max_num}"
         else:
             return 0
     except Exception as e:
@@ -1323,7 +1347,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
             if "max_index" not in vars():
                 max_index = min_index + len(row_fix_content)
             if in_list[min_index:max_index] != list(row_fix_content):
-                allowed_title = "\t".join(list(row_fix_content))
+                allowed_title = "\t".join(list(map(lambda x: str(x), row_fix_content)))
                 if set_range:
                     msg = f"{add_info}{in_file_name}第{row_fix_no}行" \
                           f"第{range_min}至{max_index + 1}个元素必须为：{allowed_title}"
@@ -1338,7 +1362,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
             if "max_index" not in vars():
                 max_index = min_index + len(col_fix_content)
             if in_list[min_index:max_index] != list(col_fix_content):
-                allowed_title = "\t".join(list(col_fix_content))
+                allowed_title = "\t".join(list(map(lambda x: str(x), col_fix_content)))
                 if set_range:
                     msg = f"{add_info}{in_file_name}第{row_fix_no}列" \
                           f"第{range_min}至{max_index + 1}个元素必须为：{allowed_title}"
@@ -1357,7 +1381,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
 @call_log
 def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="utf-8", add_info=""):
     """
-    文件详细内容检查预处理，注注意new_file与in_file为同一文件时，处理后将会替换旧文件，已内置于check_file_content
+    文件详细内容检查预处理，自动消除BOM，注意new_file与in_file为同一文件时，处理后将会替换旧文件，已内置于check_file_content
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param out_dir: 字符串，处理后对象输出目录，推荐os.path.join(args.outdir,"tmp/analysis")
     :param new_file: 字符串，处理后对象名，将保存到out_dir目录下,默认与原文件同名
@@ -1648,8 +1672,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if isinstance(row_fix_content, str):
                 row_fix_content = [row_fix_content, ]
             if in_list != list(row_fix_content):
-                in_title = ",".join(in_list)
-                allowed_title = ",".join(list(row_fix_content))
+                in_title = ",".join(map(lambda x: str(x), in_list))
+                allowed_title = ",".join(map(lambda x: str(x), row_fix_content))
                 err_msg = f"{add_info}输入文件{in_file_name}第{row_fix_no}行为{in_title}，该行必须为{allowed_title}，请检查"
                 error_list.append(err_msg)
         if ck_col_fix and col_fix_content is not None:
@@ -1658,8 +1682,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if isinstance(col_fix_content, str):
                 col_fix_content = [col_fix_content, ]
             if in_list != list(col_fix_content):
-                in_title = ",".join(in_list)
-                allowed_title = ",".join(list(col_fix_content))
+                in_title = ",".join(map(lambda x: str(x), in_list))
+                allowed_title = ",".join(map(lambda x: str(x), col_fix_content))
                 err_msg = f"{add_info}输入文件{in_file_name}第{col_fix_no}列为{in_title}，该列必须为{allowed_title}，请检查"
                 error_list.append(err_msg)
         row_flag = []
