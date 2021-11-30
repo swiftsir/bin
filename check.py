@@ -43,6 +43,10 @@ Maintenance records:
 2021.11.15
 * 修复 部分函数列表中存在数值及部分数值未转化字符串引起的报错问题
 * 修复 list_num_range、check_file_content函数报错语上下限相反的问题
+2021.11.30
+* 修复 file_xlsx2txt、pre_check_file_content处理文件含有"异常的问题
+* 修复 pre_check_file_content额外处理缺失数据的问题
+* 新增 所有函数调用及报错时是否打印信息的控制，由参数no_log控制，默认打印
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -68,7 +72,8 @@ def call_log(func):
 
     @wraps(func)
     def with_logging(*args, **kwargs):
-        print("调用 " + func.__name__)
+        if "no_log" not in kwargs or not kwargs["no_log"]:
+            print("调用 " + func.__name__)
         return func(*args, **kwargs)
 
     return with_logging
@@ -205,7 +210,8 @@ def _path_pre_proc(path: str):
 
 
 @call_log
-def str_length(in_str: str, length: int = None, min_len: int = 1, max_len: int = 20, other_str="", add_info=""):
+def str_length(in_str: str, length: int = None, min_len: int = 1, max_len: int = 20, other_str="", add_info="",
+               no_log=False):
     """
     判断字符串长度是否在范围内（max_len应大于等于min_len）
     :param in_str: 字符串，检查对象
@@ -214,6 +220,7 @@ def str_length(in_str: str, length: int = None, min_len: int = 1, max_len: int =
     :param max_len: 整数，字符串长度上限，默认20
     :param other_str: 字符串，报错信息中替换输入字符串为其他内容，""表示不替换，显示输入字符串
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串报错信息
     """
     try:
@@ -231,13 +238,13 @@ def str_length(in_str: str, length: int = None, min_len: int = 1, max_len: int =
         else:
             return f"{add_info}{s_str}长度为{len(in_str)}，低于下限：{min_len}"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}字符串长度检查时出错"
 
 
 @call_log
 def str_format(in_str: str, re_obj=None, re_ban_body=None, ck_head=True, re_ban_head=None,
-               ck_tail=False, re_ban_tail=None, other_str="", add_info=''):
+               ck_tail=False, re_ban_tail=None, other_str="", add_info='', no_log=False):
     """
     字符串正则范围内检查（默认以字母/非零数字开头，仅包含字母、数字、点和中划线）
     :param in_str: 字符串，检查对象
@@ -249,6 +256,7 @@ def str_format(in_str: str, re_obj=None, re_ban_body=None, ck_head=True, re_ban_
     :param re_ban_tail: re.compile对象，错误的开头字符的正则格式编译，默认re.compile(r"[^A-Za-z0-9]$")
     :param other_str: 字符串，报错信息中替换输入字符串为其他内容，""表示不替换，显示输入字符串
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串报错信息
     """
     try:
@@ -284,17 +292,18 @@ def str_format(in_str: str, re_obj=None, re_ban_body=None, ck_head=True, re_ban_
                 msg = f"{add_info}{s_str}中发现非法字符，但无法获取错误类型"
             return msg
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}字符串正则检查时出错"
 
 
 @call_log
-def str_chinese(in_str, other_str="", add_info=''):
+def str_chinese(in_str, other_str="", add_info='', no_log=False):
     """
     字符串中是否有中文检查
     :param in_str: 字符串，检查对象
     :param other_str: 字符串，报错信息中替换输入字符串为其他内容，""表示不替换，显示输入字符串
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 无中文返回0，有中文返回字符串报错信息
     """
     try:
@@ -309,18 +318,19 @@ def str_chinese(in_str, other_str="", add_info=''):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}中文字符串检查时出错"
 
 
 @call_log
-def str_ban(in_str, ban_list=None, other_str="", add_info=""):
+def str_ban(in_str, ban_list=None, other_str="", add_info="", no_log=False):
     """
     便捷字符串禁用字符检查（完整版使用str_format）
     :param in_str: 字符串，检查对象
     :param ban_list: 迭代器，所有不支持的字符，None表示无禁用
     :param other_str: 字符串，报错信息中替换输入字符串为其他内容，""表示不替换，显示输入字符串
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return:无禁用返回0，有禁用返回字符串报错信息
     """
     try:
@@ -336,7 +346,7 @@ def str_ban(in_str, ban_list=None, other_str="", add_info=""):
         else:
             return f'{add_info}{s_str}中发现非法字符：{_join_str(error_list)}'
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}字符串禁用检查时出错"
 
 
@@ -346,7 +356,7 @@ def check_str(in_str: str, ck_length=True, ck_format=True,
               length: int = None, min_len: int = 1, max_len: int = 20,
               re_obj=None, re_ban_body=None, ck_head=True, re_ban_head=None,
               ban_list: list = None,
-              other_str="", add_info: str = ""):
+              other_str="", add_info: str = "", no_log=False):
     """
     字符串检查
     :param in_str: 字符串，检查对象
@@ -365,6 +375,7 @@ def check_str(in_str: str, ck_length=True, ck_format=True,
     :param ban_list: 迭代器，所有不支持的字符，None表示不检查禁用字符，忽视ck_ban
     :param other_str: 字符串，报错信息中替换输入字符串为其他内容，""表示不替换，显示输入字符串
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
@@ -375,20 +386,21 @@ def check_str(in_str: str, ck_length=True, ck_format=True,
         if allow_space:  # 如果允许空格，那么将所有空格替换为"b",规避正则检查
             in_str = re.sub(' ', 'b', in_str)
         if ck_length:
-            err_msg = str_length(in_str=in_str, length=length, max_len=max_len, min_len=min_len, other_str=s_str)
+            err_msg = str_length(in_str=in_str, length=length, max_len=max_len, min_len=min_len,
+                                 other_str=s_str, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_format:
             err_msg = str_format(in_str=in_str, re_obj=re_obj, re_ban_body=re_ban_body,
-                                 ck_head=ck_head, re_ban_head=re_ban_head, other_str=s_str)
+                                 ck_head=ck_head, re_ban_head=re_ban_head, other_str=s_str, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_chinese:
-            err_msg = str_chinese(in_str=in_str, other_str=s_str)
+            err_msg = str_chinese(in_str=in_str, other_str=s_str, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_ban and ban_list is not None:
-            err_msg = str_ban(in_str=in_str, ban_list=ban_list, other_str=s_str)
+            err_msg = str_ban(in_str=in_str, ban_list=ban_list, other_str=s_str, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if len(error_list) == 0:
@@ -396,18 +408,19 @@ def check_str(in_str: str, ck_length=True, ck_format=True,
         else:
             return error_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}字符串检查时出错", ]
 
 
 @call_log
-def num_range(num: float, min_num=float('-inf'), max_num=float('inf'), add_info=""):
+def num_range(num: float, min_num=float('-inf'), max_num=float('inf'), add_info="", no_log=False):
     """
     数值范围内检查
     :param num: 浮点数，检查对象
     :param min_num: 浮点数，取值下限
     :param max_num: 浮点数，取值上限
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串报错信息
     """
     try:
@@ -418,17 +431,18 @@ def num_range(num: float, min_num=float('-inf'), max_num=float('inf'), add_info=
             max_num = '正无穷' if max_num == float('inf') else max_num
             return f"{add_info}下限为{min_num}，上限为{max_num}，给定数值{num}超出了界限"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}数值范围检查时出错"
 
 
 @call_log
-def num_ban(num: float, ban_num: list = None, add_info=""):
+def num_ban(num: float, ban_num: list = None, add_info="", no_log=False):
     """
     数值禁用值检查
     :param num: 浮点数,检查对象
     :param ban_num: 数值/数值列表，所有不支持的数值，None表示无禁用
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 无禁用返回0，有禁用返回字符串报错信息
     """
     try:
@@ -445,7 +459,7 @@ def num_ban(num: float, ban_num: list = None, add_info=""):
         else:
             return f"{add_info}发现禁用数值：{_join_str(error_list)}"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}数值禁用检查时出错"
 
 
@@ -453,7 +467,7 @@ def num_ban(num: float, ban_num: list = None, add_info=""):
 def check_num(num: float, ck_range=True, ck_ban=True,
               min_num=float('-inf'), max_num=float('inf'),
               ban_num: list = None,
-              add_info=""):
+              add_info="", no_log=False):
     """
     数值检查
     :param num: 浮点数，检查对象
@@ -463,16 +477,17 @@ def check_num(num: float, ck_range=True, ck_ban=True,
     :param max_num: 浮点数，取值上限，默认正无穷
     :param ban_num: 数值/数值列表，所有不支持的数值，None表示不检查禁用值，忽视ck_ban
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
         error_list = []
         if ck_range is True:
-            err_msg = num_range(num=num, min_num=min_num, max_num=max_num)
+            err_msg = num_range(num=num, min_num=min_num, max_num=max_num, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg} ")
         if ck_ban and ban_num is not None:
-            err_msg = num_ban(num=num, ban_num=ban_num)
+            err_msg = num_ban(num=num, ban_num=ban_num, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg} ")
         if len(error_list) == 0:
@@ -480,16 +495,17 @@ def check_num(num: float, ck_range=True, ck_ban=True,
         else:
             return error_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}数值检查时出错", ]
 
 
 @call_log
-def file_exist(in_file, add_info=""):
+def file_exist(in_file, add_info="", no_log=False):
     """
     文件存在检查
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 存在返回0，不存在返回字符串报错信息
     """
     try:
@@ -499,17 +515,18 @@ def file_exist(in_file, add_info=""):
             in_file_name = os.path.basename(in_file)
             return f"{add_info}输入文件文件{in_file_name}不存在，请检查"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}文件存在检查时出错"
 
 
 @call_log
-def file_suffix(in_file, suffix_list: list = None, add_info=""):
+def file_suffix(in_file, suffix_list: list = None, add_info="", no_log=False):
     """
     文件后缀名检查（检查in_file是否以suffix_list中某一个元素结尾，不区分大小写）
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param suffix_list: 字符串/字符串列表，允许使用的格式名，不区分大小写，默认txt
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 匹配到返回0，否则返回字符串报错信息
     """
     try:
@@ -526,16 +543,17 @@ def file_suffix(in_file, suffix_list: list = None, add_info=""):
         in_file_name = os.path.basename(in_file)
         return f"{add_info}{in_file_name}后缀不被支持，只允许使用{_join_str(suffix_list)}作为后缀的文件"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}文件后缀检查时出错"
 
 
 @call_log
-def file_null(in_file, add_info=""):
+def file_null(in_file, add_info="", no_log=False):
     """
     判断是否为空文件
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 非空返回0，空返回字符串报错信息
     """
     try:
@@ -545,17 +563,18 @@ def file_null(in_file, add_info=""):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}空文件检查时出错"
 
 
 @call_log
-def file_size(in_file, max_size="50M", add_info=""):
+def file_size(in_file, max_size="50M", add_info="", no_log=False):
     """
     检查文件大小是否超出限制
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 未超出返回0，超出返回字符串报错信息
     """
     try:
@@ -567,18 +586,19 @@ def file_size(in_file, max_size="50M", add_info=""):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}文件大小检查时出错"
 
 
 @call_log
-def file_encoding(in_file, allowed_encode: list = None, use_1=True, add_info=""):
+def file_encoding(in_file, allowed_encode: list = None, use_1=True, add_info="", no_log=False):
     """
     检查编码格式是否在允许范围内（默认UTF-8）（二进制文件如xlsx，无法检测文件编码）
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写,默认UTF-8
     :param use_1: 布尔值，默认True，表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串，推测的文件编码格式（大写），二进制文件返回None
     """
     try:
@@ -597,12 +617,12 @@ def file_encoding(in_file, allowed_encode: list = None, use_1=True, add_info="")
         else:
             return doc_encoding
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}文件编码检查时出错"
 
 
 @call_log
-def file_convert(in_file, in_code: str = "UTF-8", out_file=None, out_code="UTF-8", add_info=""):
+def file_convert(in_file, in_code: str = "UTF-8", out_file=None, out_code="UTF-8", add_info="", no_log=False):
     """
     文件编码转换
     :param in_file: 字符串，输入对象，例如："D:\a.txt"
@@ -610,6 +630,7 @@ def file_convert(in_file, in_code: str = "UTF-8", out_file=None, out_code="UTF-8
     :param out_file: 字符串，输出对象，例如："D:\b.txt"，默认在in_file后添加".convert"
     :param out_code: 字符串，输出文件编码，目标格式，不区分大小写，默认"UTF-8"
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回0，失败返回字符串报错信息
     """
     try:
@@ -638,7 +659,7 @@ def file_convert(in_file, in_code: str = "UTF-8", out_file=None, out_code="UTF-8
             print(e)
             return f"{add_info}将文件{in_file_name}从{in_code}转为{out_code}时发生错误，请尝试自己转换编码后重投任务"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}文件编码转换时出错"
 
 
@@ -646,7 +667,8 @@ file_convert_encoding = file_convert
 
 
 @call_log
-def file_xlsx2txt(in_file, out_file: str = None, sheet_no=1, sep="\t", na_values: list = None, na_rep="", add_info=""):
+def file_xlsx2txt(in_file, out_file: str = None, sheet_no=1, sep="\t", na_values: list = None, na_rep="", add_info="",
+                  no_log=False):
     """
     文件格式转换（xlsx to txt）
     :param in_file: 字符串，输入对象，例如："D:\a.xlsx"
@@ -656,6 +678,7 @@ def file_xlsx2txt(in_file, out_file: str = None, sheet_no=1, sep="\t", na_values
     :param na_values: 字符串列表，in_file中表示缺失值的字符串，默认None，表示维持原样，无默认缺失
     :param na_rep: 字符串，out_file中表示缺失值的字符串，默认""
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 转换成功返回0，转换失败返回字符串报错信息
     """
     in_file_name = os.path.basename(in_file)
@@ -663,9 +686,9 @@ def file_xlsx2txt(in_file, out_file: str = None, sheet_no=1, sep="\t", na_values
         if out_file is None:
             out_file = os.path.splitext(in_file)[0] + '.txt'
         df = pd.read_excel(in_file, sheet_name=sheet_no - 1, keep_default_na=False, na_values=na_values)
-        df.to_csv(out_file, sep=sep, na_rep=na_rep, index=False)
+        df.to_csv(out_file, sep=sep, na_rep=na_rep, index=False, quotechar=sep)
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f'{add_info}文件{in_file_name}格式转换时出错'
     else:
         return 0
@@ -678,9 +701,9 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
                     max_size="50M",
                     allowed_encode: list = None,
                     out_file=None, out_code="UTF-8",
-                    add_info=""):
+                    add_info="", no_log=False):
     """
-    文件基础检查（存在，后缀，空文件，大小，编码）,提供转码选项，仅当提供一种allowed_encode时有效
+    文件基础检查（存在，后缀，空文件，大小，编码）,提供转码选项(仅use_1=True消除BOM)，仅当提供一种allowed_encode时有效
     注意：文件编码检查及转码仅对非二进制文件有效，xlsx文件推荐使用file_xlsx2txt函数转换后进行文件检查
     注意：如果out_file与in_file同路径且同名，将覆盖原文档
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -697,6 +720,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     :param out_file: 字符串，输出对象,例如："D:\b.txt"，默认在in_file后添加".convert"
     :param out_code: 字符串，输出文件编码，默认UTF-8
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     if allowed_encode is None:
@@ -706,23 +730,23 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     try:
         error_list = []
         if ck_exist:
-            err_msg = file_exist(in_file=in_file)
+            err_msg = file_exist(in_file=in_file, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_suffix:
-            err_msg = file_suffix(in_file=in_file, suffix_list=suffix_list)
+            err_msg = file_suffix(in_file=in_file, suffix_list=suffix_list, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_null:
-            err_msg = file_null(in_file=in_file)
+            err_msg = file_null(in_file=in_file, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_size:
-            err_msg = file_size(in_file=in_file, max_size=max_size)
+            err_msg = file_size(in_file=in_file, max_size=max_size, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}{err_msg}")
         if ck_encoding:
-            err_msg = file_encoding(in_file=in_file, allowed_encode=allowed_encode, use_1=use_1)
+            err_msg = file_encoding(in_file=in_file, allowed_encode=allowed_encode, use_1=use_1, no_log=no_log)
             if err_msg is None:
                 error_list.append(f"{add_info}推测{os.path.basename(in_file)}文件为二进制文件（如xlsx），无法识别文件编码及转码")
             elif do_convert and len(allowed_encode) == 1:
@@ -732,7 +756,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
                 else:
                     in_code = allowed_encode[0]
                 err_msg = file_convert(in_file=in_file, out_file=out_file,
-                                       in_code=in_code, out_code=out_code)
+                                       in_code=in_code, out_code=out_code, no_log=no_log)
                 if err_msg:
                     error_list.append(f"{add_info}{err_msg}")
             elif err_msg and not do_convert:
@@ -742,45 +766,48 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
         else:
             return error_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}文件基础检查时出错", ]
 
 
 @call_log
-def get_row_num(in_file):
+def get_row_num(in_file, no_log=False):
     """
     获取文件行数
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回整数
     """
     try:
         out = subprocess.getoutput("awk 'END{print NR}' %s" % in_file)
         return int(out.split()[0])
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
 
 
 @call_log
-def get_col_num(in_file, sep='\t'):
+def get_col_num(in_file, sep='\t', no_log=False):
     """
     获取文件列数（列数不一致时，以最后一行统计为准）
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param sep: 字符串，分隔符，默认"\t"
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回整数
     """
     try:
         out = subprocess.getoutput("awk -F '%s' 'END{print NF}' %s" % (sep, in_file))
         return int(out)
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
 
 
 @call_log
-def get_row_line(in_file, line_num=1):
+def get_row_line(in_file, line_num=1, no_log=False):
     """
     获取文件指定一行（整行作为字符串读入），默认读第一行
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param line_num: 正整数，指定读取行号，默认1
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回指定行字符串，错误无返回
     """
     try:
@@ -792,18 +819,19 @@ def get_row_line(in_file, line_num=1):
             else:
                 return line
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
 
 
 get_row = get_line = get_row_line
 
 
 @call_log
-def file_line_dup(in_file, add_info=''):
+def file_line_dup(in_file, add_info='', no_log=False):
     """
     数据重复行检查
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 无重复返回0，有重复返回字符串报错信息
     """
     try:
@@ -820,15 +848,16 @@ def file_line_dup(in_file, add_info=''):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
 
 
 @call_log
-def line_blank(in_line, add_info=''):
+def line_blank(in_line, add_info='', no_log=False):
     """
     空白行检查（除空白字符外，无其他内容）
     :param in_line: 字符串，检查对象,例如："D:\a.txt"
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 非空白行返回0，空白行返回字符串报错信息
     """
     try:
@@ -839,17 +868,18 @@ def line_blank(in_line, add_info=''):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查空行时出错"
 
 
 @call_log
-def line_sep(in_line, sep_r=r'\t', add_info=''):
+def line_sep(in_line, sep_r=r'\t', add_info='', no_log=False):
     """
     分隔符规范检查（开头分隔符、连用分隔符、分隔符前后空白、结尾空白）
     :param in_line: 字符串，检查对象,例如："D:\a.txt"
     :param sep_r: 字符串，纯文本读入的分隔符，含有与正则有关的字符应在字符串前加r,或将字符使用'\'转义,默认r'\t'
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 规范返回0，不规范返回字符串报错信息
     """
     try:
@@ -874,13 +904,13 @@ def line_sep(in_line, sep_r=r'\t', add_info=''):
         else:
             return f'{add_info}{msg}请检查'
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查分隔符规范时出错"
 
 
 @call_log
 def get_row2list(in_file, row_no=1, sep="\t",
-                 rm_blank=True, fill_null=False, null_list: list = None):
+                 rm_blank=True, fill_null=False, null_list: list = None, no_log=False):
     """
     获取文件指定一行的元素列表，并默认移除元素前后空白，默认第一行
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -889,6 +919,7 @@ def get_row2list(in_file, row_no=1, sep="\t",
     :param rm_blank: 布尔值，是否移除该行元素前后空白，默认True
     :param fill_null: 布尔值，是否将缺失数据统一替换为NA，默认False
     :param null_list: 字符串/字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回指定行元素列表，错误无返回
     """
     try:
@@ -909,12 +940,12 @@ def get_row2list(in_file, row_no=1, sep="\t",
                     line_list = ["NA" if x in null_list else x for x in line_list]
                 return line_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
 
 
 @call_log
 def get_col2list(in_file, col_no=1, sep="\t",
-                 rm_blank=True, fill_null=True, null_list: list = None):
+                 rm_blank=True, fill_null=True, null_list: list = None, no_log=False):
     """
     获取文件指定一列的元素列表，并默认移除元素前后空白，默认第一列
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -923,6 +954,7 @@ def get_col2list(in_file, col_no=1, sep="\t",
     :param rm_blank: 布尔值，是否移除该列元素前后空白，默认True
     :param fill_null: 布尔值，是否将缺失数据统一替换为NA，默认True
     :param null_list: 字符串/字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回指定列元素列表，错误无返回
     """
     try:
@@ -941,11 +973,12 @@ def get_col2list(in_file, col_no=1, sep="\t",
             col_elements.append(col_element)
         return col_elements
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
 
 
 @call_log
-def list_length(in_list, exp_len: int = None, min_len=0, max_len: int = float('inf'), key="元素", add_info=""):
+def list_length(in_list, exp_len: int = None, min_len=0, max_len: int = float('inf'), key="元素", add_info="",
+                no_log=False):
     """
     检查列表长度是否为固定长度/在范围内，固定长度检查优先级高于范围内检查
     :param in_list: 列表，检查对象
@@ -954,6 +987,7 @@ def list_length(in_list, exp_len: int = None, min_len=0, max_len: int = float('i
     :param max_len: 整数，最大长度，length=None时使用，默认正无穷
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 为固定长度/在范围内返回0，否则返回字符串报错信息
     """
     try:
@@ -973,12 +1007,12 @@ def list_length(in_list, exp_len: int = None, min_len=0, max_len: int = float('i
             else:
                 return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查长度时出错"
 
 
 @call_log
-def list_range(in_list, min_len=0, max_len: int = float('inf'), key='元素', add_info=""):
+def list_range(in_list, min_len=0, max_len: int = float('inf'), key='元素', add_info="", no_log=False):
     """
     检查列表长度是否在范围内
     :param in_list: 列表，检查对象
@@ -986,18 +1020,20 @@ def list_range(in_list, min_len=0, max_len: int = float('inf'), key='元素', ad
     :param max_len: 整数，最大长度，默认正无穷
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串报错信息
     """
-    return list_length(in_list=in_list, min_len=min_len, max_len=max_len, key=key, add_info=add_info)
+    return list_length(in_list=in_list, min_len=min_len, max_len=max_len, key=key, add_info=add_info, no_log=no_log)
 
 
 @call_log
-def list_dup(in_list, key='元素', add_info=""):
+def list_dup(in_list, key='元素', add_info="", no_log=False):
     """
     检查列表中的重复元素
     :param in_list: 列表，检查对象
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 无重复0，有重复返回字符串报错信息
     """
     try:
@@ -1012,18 +1048,19 @@ def list_dup(in_list, key='元素', add_info=""):
         else:
             return f"{add_info}存在重复的{key}{_join_str(dup_item)}，请检查"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查重复时出错"
 
 
 @call_log
-def list_ban(in_list, ban_list: list = None, key='元素', add_info=""):
+def list_ban(in_list, ban_list: list = None, key='元素', add_info="", no_log=False):
     """
     检查列表中的禁用元素
     :param in_list: 列表，检查对象
     :param ban_list: 字符串/字符串列表，禁用元素，默认[]，即无禁用
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 无禁用返回0，有禁用返回字符串报错信息
     """
     try:
@@ -1039,18 +1076,19 @@ def list_ban(in_list, ban_list: list = None, key='元素', add_info=""):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查禁用时出错"
 
 
 @call_log
-def list_na(in_list, na_list: list = None, key='元素', add_info=""):
+def list_na(in_list, na_list: list = None, key='元素', add_info="", no_log=False):
     """
     检查列表中是否包含缺失数据
     :param in_list: 列表，检查对象
     :param na_list: 字符串/字符串列表，定义为缺失数据的字符类型列表，默认("", "NA", "N/A", "NULL")
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 无缺失返回0，有缺失返回字符串报错信息
     """
     try:
@@ -1059,15 +1097,15 @@ def list_na(in_list, na_list: list = None, key='元素', add_info=""):
         if na_list is None:
             na_list = ["", "NA", "N/A", "NULL"]
         add_info = add_info + '含有空或缺失'
-        return list_ban(in_list=in_list, ban_list=na_list, key=key, add_info=add_info)
+        return list_ban(in_list=in_list, ban_list=na_list, key=key, add_info=add_info, no_log=no_log)
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查缺失时出错"
 
 
 @call_log
 def list_format(in_list, re_obj=None, re_ban_body=None, ck_head=True, re_ban_head=None,
-                ck_tail=False, re_ban_tail=None, rm_first=False, key='元素', add_info=''):
+                ck_tail=False, re_ban_tail=None, rm_first=False, key='元素', add_info='', no_log=False):
     """
     列表字符串正则范围内检查（默认以字母/数字开头，仅包含字母、数字、点和中划线和下划线）
     :param in_list: 列表，检查对象
@@ -1080,6 +1118,7 @@ def list_format(in_list, re_obj=None, re_ban_body=None, ck_head=True, re_ban_hea
     :param rm_first: 布尔值，默认False,是否去掉首个元素，当文件有标题行时选True
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串报错信息
     """
     try:
@@ -1096,7 +1135,7 @@ def list_format(in_list, re_obj=None, re_ban_body=None, ck_head=True, re_ban_hea
         error_item = []
         for i in in_list:
             err_msg = str_format(in_str=i, re_obj=re_obj, re_ban_body=re_ban_body,
-                                 ck_head=ck_head, re_ban_head=re_ban_head, re_ban_tail=re_ban_tail)
+                                 ck_head=ck_head, re_ban_head=re_ban_head, re_ban_tail=re_ban_tail, no_log=True)
             if err_msg:
                 error_item.append(i)
         if error_item:
@@ -1104,13 +1143,13 @@ def list_format(in_list, re_obj=None, re_ban_body=None, ck_head=True, re_ban_hea
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查字符串使用规范时出错"
 
 
 @call_log
 def list_factor(in_list, exp_num=None, min_num=1, max_num: int = float('inf'),
-                rm_first=False, key='元素', add_info=""):
+                rm_first=False, key='元素', add_info="", no_log=False):
     """
     列表因子（非重复元素）个数检查
     :param in_list: 列表，检查对象
@@ -1120,19 +1159,20 @@ def list_factor(in_list, exp_num=None, min_num=1, max_num: int = float('inf'),
     :param rm_first: 布尔值，默认False,是否去掉首个元素，当文件有标题行时选True
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串报错信息
     """
     try:
         if rm_first:
             in_list = in_list[1:]
         in_list = list(set(in_list))
-        msg = list_length(in_list, exp_len=exp_num, min_len=min_num, max_len=max_num, key=key)
+        msg = list_length(in_list, exp_len=exp_num, min_len=min_num, max_len=max_num, key=key, no_log=no_log)
         if msg:
             return f"{add_info}{msg}"
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查类别数时出错"
 
 
@@ -1140,13 +1180,14 @@ list_factor_num = list_class_num = list_group_num = list_factor
 
 
 @call_log
-def list_type(in_list, exp_type='float', rm_first=False, add_info=""):
+def list_type(in_list, exp_type='float', rm_first=False, add_info="", no_log=False):
     """
     检查列表元素类型，并转换期望元素类型的新列表
     :param in_list: 列表，检查对象
     :param exp_type: 字符串，期望列表元素类型，限定为python支持的格式,如[int,float,str,bool,...]，默认"float"
     :param rm_first: 布尔值，默认False,是否去掉首个元素，当文件有标题行时选True
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回新列表，异常返回字符串报错信息
     """
     try:
@@ -1159,12 +1200,13 @@ def list_type(in_list, exp_type='float', rm_first=False, add_info=""):
     except ValueError as e:
         return f"{add_info}检查到非{exp_type}类值：" + str(e).split(':')[-1]
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查类型时出错"
 
 
 @call_log
-def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_first=False, key='数值', add_info=""):
+def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_first=False, key='数值', add_info="",
+                   no_log=False):
     """
     检查数值列表元素数值是否在范围内
     :param in_list: 列表，检查对象
@@ -1173,6 +1215,7 @@ def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_firs
     :param rm_first: 布尔值，默认False,是否去掉首个元素，当文件有标题行时选True
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回0，异常返回字符串报错信息
     """
     try:
@@ -1180,7 +1223,7 @@ def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_firs
             in_list = in_list[1:]
         err_list = []
         for i in range(1, len(in_list) + 1):
-            msg = num_range(num=in_list[i - 1], min_num=min_num, max_num=max_num, add_info=f'第{i}个数值：')
+            msg = num_range(num=in_list[i - 1], min_num=min_num, max_num=max_num, add_info=f'第{i}个数值：', no_log=True)
             if msg:
                 err_list.append(i)
         if err_list:
@@ -1190,12 +1233,12 @@ def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_firs
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查数值范围时出错"
 
 
 @call_log
-def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', add_info=""):
+def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', add_info="", no_log=False):
     """
     检查数值列表元素数值有无禁用值
     :param in_list: 列表，检查对象
@@ -1203,6 +1246,7 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
     :param rm_first: 布尔值，默认False,是否去掉首个元素，当文件有标题行时选True
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回0，异常返回字符串报错信息
     """
     try:
@@ -1210,7 +1254,7 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
             in_list = in_list[1:]
         err_list = []
         for i in range(1, len(in_list) + 1):
-            msg = num_ban(num=in_list[i - 1], ban_num=ban_num, add_info="")
+            msg = num_ban(num=in_list[i - 1], ban_num=ban_num, add_info="", no_log=True)
             if msg:
                 err_list.append(i)
         if err_list:
@@ -1218,13 +1262,13 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查数值禁用时出错"
 
 
 @call_log
 def file_com_row_col_num(in_file, sep='\t', row_greater: bool = None,
-                         contain_equal=True, add_info=''):
+                         contain_equal=True, add_info='', no_log=False):
     """
     数据行列数大小关系检查
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1232,11 +1276,12 @@ def file_com_row_col_num(in_file, sep='\t', row_greater: bool = None,
     :param row_greater: 布尔值，是否行数更多，None表示仅返回比较结果信息，不返回报错信息
     :param contain_equal: 布尔值，是否含等号，作为row_greater参数补充，仅在不为None时生效，默认True
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常[有row_greater参数返回0,无row_greater参数返回字符串检查结果]，异常返回字符串报错信息
     """
     try:
-        row_number = get_row_num(in_file=in_file)
-        col_number = get_col_num(in_file=in_file, sep=sep)
+        row_number = get_row_num(in_file=in_file, no_log=no_log)
+        col_number = get_col_num(in_file=in_file, sep=sep, no_log=no_log)
         if row_greater is None:
             if row_number > col_number:
                 return f"{add_info}行数>列数"
@@ -1266,13 +1311,13 @@ def file_com_row_col_num(in_file, sep='\t', row_greater: bool = None,
             else:
                 return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}检查文件行列数大小关系时出错"
 
 
 @call_log
 def check_file_dim_fix(in_file, sep='\t', row_num_exp: int = None,
-                       col_num_exp: int = None, add_info=''):
+                       col_num_exp: int = None, add_info='', no_log=False):
     """
     数据固定维度快捷检查，完整版使用 check_file_content
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1280,14 +1325,15 @@ def check_file_dim_fix(in_file, sep='\t', row_num_exp: int = None,
     :param row_num_exp: 正整数，期望行数，None表示不检查行数
     :param col_num_exp: 正整数，期望列数，None表示不检查列数
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
         if not os.path.isfile(in_file):
             return [f"{add_info}快捷检查文件固定维度时出错，文件{in_file}不存在或非文件", ]
         error_list = []
-        row_number = get_row_num(in_file=in_file)
-        col_number = get_col_num(in_file=in_file, sep=sep)
+        row_number = get_row_num(in_file=in_file, no_log=no_log)
+        col_number = get_col_num(in_file=in_file, sep=sep, no_log=no_log)
         in_file_name = os.path.basename(in_file)
         if row_num_exp is not None:
             if row_number != row_num_exp:
@@ -1300,7 +1346,7 @@ def check_file_dim_fix(in_file, sep='\t', row_num_exp: int = None,
         else:
             return error_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}快捷检查文件固定维度时出错", ]
 
 
@@ -1309,7 +1355,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
                         ck_row_fix=True, ck_col_fix=True, set_range=False,
                         range_min=1, range_max: int = None,
                         row_fix_no: int = 1, row_fix_content: list = (),
-                        col_fix_no: int = 1, col_fix_content: list = (), add_info=''):
+                        col_fix_no: int = 1, col_fix_content: list = (), add_info='', no_log=False):
     """
     数据固定行/列标题快捷检查，完整版使用 check_file_content，较完整版多出部分行/列内容固定的检查
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1327,6 +1373,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
     :param col_fix_no: 正整数，要检查的列数，默认1
     :param col_fix_content: 字符串/字符串列表，期望的检查列固定内容，None表示不检查，忽视ck_col_fix
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
@@ -1341,7 +1388,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
         in_file_name = os.path.basename(in_file)
         if ck_row_fix and row_fix_content is not None:
             in_list = get_row2list(in_file=in_file, row_no=row_fix_no, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
             if isinstance(row_fix_content, str):
                 row_fix_content = [row_fix_content, ]
             if "max_index" not in vars():
@@ -1356,7 +1403,7 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
                     error_list.append(f"{add_info}{in_file_name}第{row_fix_no}行必须为：{allowed_title}")
         if ck_col_fix and col_fix_content is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_fix_no, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
             if isinstance(col_fix_content, str):
                 col_fix_content = [col_fix_content, ]
             if "max_index" not in vars():
@@ -1374,12 +1421,12 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
         else:
             return error_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}快捷检查文件固定内容时出错", ]
 
 
 @call_log
-def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="utf-8", add_info=""):
+def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="utf-8", add_info="", no_log=False):
     """
     文件详细内容检查预处理，自动消除BOM，注意new_file与in_file为同一文件时，处理后将会替换旧文件，已内置于check_file_content
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1388,6 +1435,7 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
     :param sep: 字符串，分隔符，默认"\t"
     :param encoding: 字符串，输入及输出文件编码格式，不区分大小写,默认utf-8，不推荐修改
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回0，异常返回字符串报错信息
     """
     try:
@@ -1404,26 +1452,27 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
             # new_file = os.path.abspath(new_file)  # 自定路径
         if in_file == new_file:
             cmd = f'sed -i "/^\s*$/d" {new_file}'  # 去空白行
-            print(cmd)
+            print(cmd) if not no_log else 1
             os.system(cmd)
         else:
-            cmd = f'mkdir -p {out_dir} && cp {in_file} {new_file} && sed -i "/^\s*$/d" {new_file}'  # 去空白行
-            print(cmd)
+            cmd = f'mkdir -p {out_dir} && cp {in_file} {new_file} && sed -i "/^\s*$/d" {new_file}'  # 去空白行,仅限linux
+            print(cmd) if not no_log else 1
             os.system(cmd)
-        df = pd.read_csv(new_file, sep=sep, header=None, na_filter=False, encoding=encoding)
+        df = pd.read_csv(new_file, sep=sep, header=None, na_filter=False, encoding=encoding, quotechar=sep,
+                         na_values="", keep_default_na=False)
         for i in range(df.shape[0]):  # 去元素前后空白
             for j in range(df.shape[1]):
                 tem = str(df.iloc[i, j]).strip()
                 df.iloc[i, j] = tem
-        df.to_csv(new_file, sep=sep, index=0, header=None)
+        df.to_csv(new_file, sep=sep, index=0, header=None, quotechar=sep)
     except pd.errors.ParserError as e:
-        print(e)
+        print(e) if not no_log else 1
         list1 = str(e).strip().split(' ')
         return f"{add_info}[除空白行]首行包含{list1[-7]}列，而检测到第{list1[-3].strip(',')}行包含{list1[-1]}列，" \
                f"所有行的列数不应超过首行，请检查：1.是否在首行两个元素间有且只有一个分隔符[{sep}]2.第{list1[-3].strip(',')}行" \
                f"及后续行是否错误使用分隔符[{sep}]"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}文件详细内容检查预处理时出错"
     else:
         return 0
@@ -1459,7 +1508,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                        ck_row_num_ban=True, ck_col_num_ban=True, ban_num: list = None,
                        ck_row_standard=False, ck_col_standard=False, ck_standard_list: list = None,
                        com_col_row_mum=True, row_greater: bool = None, contain_equal=True,
-                       add_info=''):
+                       add_info='', no_log=False):
     """
     文件详细内容检查，注意new_file与in_file为同一文件时，处理后将会替换旧文件，后续检查及程序应使用new_file替代in_file传参
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1532,6 +1581,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
     :param row_greater: 布尔值，是否行数更多，None表示不检查，忽视com_col_row_mum
     :param contain_equal: 布尔值，比较的行列数维度关系时，是否含等号，作为row_greater参数补充,默认为True
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
@@ -1546,42 +1596,43 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             new_file = os.path.join(os.path.abspath(out_dir), os.path.basename(new_file))
             # new_file = os.path.join(os.path.dirname(os.path.abspath(in_file)), os.path.basename(new_file))  # 同路径
         if pre_check:
-            err_msg = pre_check_file_content(in_file, out_dir=out_dir, new_file=new_file, sep=sep, encoding='utf-8')
+            err_msg = pre_check_file_content(in_file, out_dir=out_dir, new_file=new_file, sep=sep, encoding='utf-8',
+                                             no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
                 return error_list
         in_file = new_file  # 分隔符检查前，需确保使用去除空行及元素前后空白的新文件
-        row_number = get_row_num(in_file=in_file)
-        col_number = get_col_num(in_file=in_file, sep=sep)
+        row_number = get_row_num(in_file=in_file, no_log=no_log)
+        col_number = get_col_num(in_file=in_file, sep=sep, no_log=no_log)
         if ck_sep:
             for row in range(1, row_number + 1):
-                in_line = get_row_line(in_file=in_file, line_num=row)
-                err_msg = line_sep(in_line, sep_r=sep_r)
+                in_line = get_row_line(in_file=in_file, line_num=row, no_log=True)
+                err_msg = line_sep(in_line, sep_r=sep_r, no_log=True)
                 if err_msg:
                     error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
         if ck_header:
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
-            tail_length = get_col_num(in_file=in_file, sep=sep)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
+            tail_length = get_col_num(in_file=in_file, sep=sep, no_log=no_log)
             if len(in_list) < tail_length:
                 msg = f"{add_info}输入文件{in_file_name}的首行（标题行）部分为空，无法识别标题，请检查是否在两个行名间有且只有一个分隔符"
                 error_list.append(msg)
         if ck_line_dup:
-            err_msg = file_line_dup(in_file=in_file)
+            err_msg = file_line_dup(in_file=in_file, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
         if error_list:  # 维度检查前需确保分隔符正确
             return error_list
         if ck_row_num and row_num_exp is not None:
             in_list = get_col2list(in_file=in_file, col_no=1, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
-            err_msg = list_length(in_list=in_list, exp_len=row_num_exp)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
+            err_msg = list_length(in_list=in_list, exp_len=row_num_exp, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}行数有误：{err_msg}")
         if ck_col_num and col_num_exp is not None:
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
-            err_msg = list_length(in_list=in_list, exp_len=col_num_exp)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
+            err_msg = list_length(in_list=in_list, exp_len=col_num_exp, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}列数有误：{err_msg}")
         if ck_row_num and row_num_exp is None and (row_min_num_exp or row_max_num_exp) is not None:
@@ -1590,8 +1641,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if row_max_num_exp is None:
                 row_max_num_exp = float('inf')
             in_list = get_col2list(in_file=in_file, col_no=1, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
-            err_msg = list_length(in_list=in_list, min_len=row_min_num_exp, max_len=row_max_num_exp)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
+            err_msg = list_length(in_list=in_list, min_len=row_min_num_exp, max_len=row_max_num_exp, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}行数范围有误：{err_msg}")
         if ck_col_num and col_num_exp is None and (col_min_num_exp or col_max_num_exp) is not None:
@@ -1600,8 +1651,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if col_max_num_exp is None:
                 col_max_num_exp = float('inf')
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
-            err_msg = list_length(in_list=in_list, min_len=col_min_num_exp, max_len=col_max_num_exp)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
+            err_msg = list_length(in_list=in_list, min_len=col_min_num_exp, max_len=col_max_num_exp, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}列数范围有误：{err_msg}")
         if error_list:  # 行列内容检查前需确保维度正确
@@ -1615,25 +1666,25 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 ck_row_list = [ck_row_list, ]
             for row in ck_row_list:
                 in_list = get_row2list(in_file=in_file, row_no=row, sep=sep, rm_blank=rm_blank,
-                                       fill_null=fill_null, null_list=null_list)
+                                       fill_null=fill_null, null_list=null_list, no_log=True)
                 if ck_row_length and row_length is not None:
-                    err_msg = list_length(in_list=in_list, exp_len=row_length)
+                    err_msg = list_length(in_list=in_list, exp_len=row_length, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
                 elif not ck_row_length and ck_row_length_range:
-                    err_msg = list_range(in_list=in_list, min_len=row_min_len, max_len=row_max_len)
+                    err_msg = list_range(in_list=in_list, min_len=row_min_len, max_len=row_max_len, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
                 if ck_row_dup:
-                    err_msg = list_dup(in_list=in_list)
+                    err_msg = list_dup(in_list=in_list, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{row}行有重复：{err_msg}，该行不允许重复值")
                 if ck_row_ban and ban_list is not None:
-                    err_msg = list_ban(in_list=in_list, ban_list=ban_list)
+                    err_msg = list_ban(in_list=in_list, ban_list=ban_list, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{row}行检查到非法元素{err_msg}")
                 if ck_row_na:
-                    err_msg = list_na(in_list=in_list, na_list=na_list)
+                    err_msg = list_na(in_list=in_list, na_list=na_list, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
         if ck_col_base:
@@ -1645,30 +1696,30 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 ck_col_list = [ck_col_list, ]
             for col in ck_col_list:
                 in_list = get_col2list(in_file=in_file, col_no=col, sep=sep, rm_blank=rm_blank,
-                                       fill_null=fill_null, null_list=null_list)
+                                       fill_null=fill_null, null_list=null_list, no_log=True)
                 if ck_col_length and col_length is not None:
-                    err_msg = list_length(in_list=in_list, exp_len=col_length)
+                    err_msg = list_length(in_list=in_list, exp_len=col_length, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
                 elif not ck_col_length and ck_col_length_range:
-                    err_msg = list_range(in_list=in_list, min_len=col_min_len, max_len=col_max_len)
+                    err_msg = list_range(in_list=in_list, min_len=col_min_len, max_len=col_max_len, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
                 if ck_col_dup:
-                    err_msg = list_dup(in_list=in_list)
+                    err_msg = list_dup(in_list=in_list, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{col}列有重复：{err_msg}，该列不允许重复值")
                 if ck_col_ban and ban_list is not None:
-                    err_msg = list_ban(in_list=in_list, ban_list=ban_list)
+                    err_msg = list_ban(in_list=in_list, ban_list=ban_list, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{col}列检查到非法元素{err_msg}")
                 if ck_col_na:
-                    err_msg = list_na(in_list=in_list, na_list=na_list)
+                    err_msg = list_na(in_list=in_list, na_list=na_list, no_log=True)
                     if err_msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
         if ck_row_fix and row_fix_content is not None:
             in_list = get_row2list(in_file=in_file, row_no=row_fix_no, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
             if isinstance(row_fix_content, str):
                 row_fix_content = [row_fix_content, ]
             if in_list != list(row_fix_content):
@@ -1678,7 +1729,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 error_list.append(err_msg)
         if ck_col_fix and col_fix_content is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_fix_no, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
+                                   fill_null=fill_null, null_list=null_list, no_log=no_log)
             if isinstance(col_fix_content, str):
                 col_fix_content = [col_fix_content, ]
             if in_list != list(col_fix_content):
@@ -1696,19 +1747,19 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 ck_row_type_list = [ck_row_type_list, ]
             for row in ck_row_type_list:
                 in_list = get_row2list(in_file=in_file, row_no=row, sep=sep, rm_blank=rm_blank,
-                                       fill_null=fill_null, null_list=null_list)
-                msg = list_type(in_list=in_list, exp_type=exp_type, rm_first=rm_first)
+                                       fill_null=fill_null, null_list=null_list, no_log=True)
+                msg = list_type(in_list=in_list, exp_type=exp_type, rm_first=rm_first, no_log=True)
                 if isinstance(msg, str):
                     error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{msg}")
                 else:
                     if exp_type in ['float', 'int']:
                         row_flag.append(1)
                     if ck_row_num_range:
-                        err_msg = list_num_range(in_list=msg, min_num=row_min_num, max_num=row_max_num)
+                        err_msg = list_num_range(in_list=msg, min_num=row_min_num, max_num=row_max_num, no_log=True)
                         if err_msg:
                             error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
                     if ck_row_num_ban and ban_num is not None:
-                        err_msg = list_num_ban(in_list=msg, ban_num=ban_num)
+                        err_msg = list_num_ban(in_list=msg, ban_num=ban_num, no_log=True)
                         if err_msg:
                             error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
         col_flag = []
@@ -1721,19 +1772,19 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 ck_col_type_list = [ck_col_type_list, ]
             for col in ck_col_type_list:
                 in_list = get_col2list(in_file=in_file, col_no=col, sep=sep, rm_blank=rm_blank,
-                                       fill_null=fill_null, null_list=null_list)
-                msg = list_type(in_list=in_list, exp_type=exp_type, rm_first=rm_first)
+                                       fill_null=fill_null, null_list=null_list, no_log=True)
+                msg = list_type(in_list=in_list, exp_type=exp_type, rm_first=rm_first, no_log=True)
                 if isinstance(msg, str):
                     error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{msg}")
                 else:
                     if exp_type in ['float', 'int']:
                         col_flag.append(1)
                     if ck_col_num_range:
-                        err_msg = list_num_range(in_list=msg, min_num=col_min_num, max_num=col_max_num)
+                        err_msg = list_num_range(in_list=msg, min_num=col_min_num, max_num=col_max_num, no_log=True)
                         if err_msg:
                             error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
                     if ck_col_num_ban and ban_num is not None:
-                        err_msg = list_num_ban(in_list=msg, ban_num=ban_num)
+                        err_msg = list_num_ban(in_list=msg, ban_num=ban_num, no_log=True)
                         if err_msg:
                             error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
         if row_flag and ck_row_standard:
@@ -1746,8 +1797,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if ck_standard_list in ck_row_type_list:
                 for row in ck_standard_list:
                     in_list = get_row2list(in_file=in_file, row_no=row, sep=sep, rm_blank=rm_blank,
-                                           fill_null=fill_null, null_list=null_list)
-                    msg = list_factor(in_list=in_list, exp_num=1, rm_first=rm_first)
+                                           fill_null=fill_null, null_list=null_list, no_log=True)
+                    msg = list_factor(in_list=in_list, exp_num=1, rm_first=rm_first, no_log=True)
                     if not msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{row}行数据完全一致，"
                                           f"标准差为0，不能按行进行标准化，请删除该行或尝试按列标准化")
@@ -1761,14 +1812,14 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if ck_standard_list in ck_col_type_list:
                 for col in ck_standard_list:
                     in_list = get_col2list(in_file=in_file, col_no=col, sep=sep, rm_blank=rm_blank,
-                                           fill_null=fill_null, null_list=null_list)
-                    msg = list_factor(in_list=in_list, exp_num=1, rm_first=rm_first)
+                                           fill_null=fill_null, null_list=null_list, no_log=True)
+                    msg = list_factor(in_list=in_list, exp_num=1, rm_first=rm_first, no_log=True)
                     if not msg:
                         error_list.append(f"{add_info}输入文件{in_file_name}第{col}列数据完全一致，"
                                           f"标准差为0，不能按列进行标准化，请删除该列或尝试按行标准化")
         if com_col_row_mum and row_greater is not None:
             err_msg = file_com_row_col_num(in_file=in_file, sep=sep, row_greater=row_greater,
-                                           contain_equal=contain_equal)
+                                           contain_equal=contain_equal, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
         if len(error_list) == 0:
@@ -1776,13 +1827,13 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
         else:
             return error_list
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}检查文件详细内容时出错", ]
 
 
 @call_log
 def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
-             ck_1_in_2=False, key='元素', add_info=""):
+             ck_1_in_2=False, key='元素', add_info="", no_log=False):
     """
     比较两个列表元素是否相同
     :param list1: 列表，第一个比较对象
@@ -1792,6 +1843,7 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
     :param ck_1_in_2: 布尔值，是否检查list1是否包含于list2，默认False，即仅寻找互斥元素
     :param key: 字符串，关键字信息，默认'元素'
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 相同返回0，不同返回字符串报错信息
     """
     try:
@@ -1831,7 +1883,7 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
             else:
                 return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}比较两列表内容时出错"
 
 
@@ -1841,7 +1893,7 @@ def check_com_line(in_file1, in_file2,
                    ck_2_row: bool = None, ck_2_col: bool = None,
                    file1_no=1, file2_no=1,
                    order_strict=False, rm_first=False, ck_1_in_2=False,
-                   sep="\t", rm_blank=True, fill_null=False, null_list=None, key='样本', add_info=""):
+                   sep="\t", rm_blank=True, fill_null=False, null_list=None, key='样本', add_info="", no_log=False):
     """
     对比两个文件某一行/列数据的差异
     :param in_file1: 字符串，检查对象1,例如："D:\a.txt"
@@ -1861,6 +1913,7 @@ def check_com_line(in_file1, in_file2,
     :param null_list: 字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
     :param key: 字符串，关键字信息，默认'样本'
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
@@ -1885,30 +1938,30 @@ def check_com_line(in_file1, in_file2,
                 and (ck_2_row or ck_2_col) and (not (ck_2_row and ck_2_col)):
             if ck_1_row:
                 in_list1 = get_row2list(in_file=in_file1, row_no=file1_no, sep=sep, rm_blank=rm_blank,
-                                        fill_null=fill_null, null_list=null_list)
+                                        fill_null=fill_null, null_list=null_list, no_log=True)
             if ck_1_col:
                 in_list1 = get_col2list(in_file=in_file1, col_no=file1_no, sep=sep, rm_blank=rm_blank,
-                                        fill_null=fill_null, null_list=null_list)
+                                        fill_null=fill_null, null_list=null_list, no_log=True)
             if ck_2_row:
                 in_list2 = get_row2list(in_file=in_file2, row_no=file2_no, sep=sep, rm_blank=rm_blank,
-                                        fill_null=fill_null, null_list=null_list)
+                                        fill_null=fill_null, null_list=null_list, no_log=True)
             if ck_2_col:
                 in_list2 = get_col2list(in_file=in_file2, col_no=file2_no, sep=sep, rm_blank=rm_blank,
-                                        fill_null=fill_null, null_list=null_list)
+                                        fill_null=fill_null, null_list=null_list, no_log=True)
             msg = com_list(list1=in_list1, list2=in_list2, order_strict=order_strict, rm_first=rm_first,
-                           ck_1_in_2=ck_1_in_2, key=key)
+                           ck_1_in_2=ck_1_in_2, key=key, no_log=no_log)
             if msg != 0:
                 return f'{add_info}{in_file_name1}第{file1_no}{dim1}与{in_file_name2}第{file2_no}{dim2}{msg}'
             else:
                 return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}比较两文件内容时出错", ]
 
 
 @call_log
 def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: int = None, col_no: int = None,
-                           sep="\t", rm_blank=True, fill_null=False, null_list=None, add_info=""):
+                           sep="\t", rm_blank=True, fill_null=False, null_list=None, add_info="", no_log=False):
     """
     检查（参数等）字符串/字符串列表是否（全部）包含在文件某行中
     :param in_str: 字符串/字符串列表，检查对象字符串
@@ -1922,6 +1975,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
     :param fill_null: 布尔值，将缺失数据统一替换为NA，默认True
     :param null_list: 字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合返回报错信息列表
     """
     try:
@@ -1934,7 +1988,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
         error_list = []
         if ck_row and row_no is not None:
             in_list = get_row2list(in_file=in_file, row_no=row_no, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
+                                   fill_null=fill_null, null_list=null_list, no_log=True)
             in_list = list(map(lambda x: str(x), in_list))
             in_str_list = list(map(lambda x: str(x), in_str_list))
             str_item = set(in_str_list).difference(set(in_list))
@@ -1942,7 +1996,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
                 error_list.append(f"{add_info}{in_file_name}第{row_no}行不含{_join_str(str_item)}元素")
         if ck_col and col_no is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_no, sep=sep, rm_blank=rm_blank,
-                                   fill_null=fill_null, null_list=null_list)
+                                   fill_null=fill_null, null_list=null_list, no_log=True)
             in_list = list(map(lambda x: str(x), in_list))
             in_str_list = list(map(lambda x: str(x), in_str_list))
             str_item = set(in_str_list).difference(set(in_list))
@@ -1953,17 +2007,18 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}检查文件包含字符串时出错", ]
 
 
 @call_log
-def del_all(path, self_contain=False, add_info=""):
+def del_all(path, self_contain=False, add_info="", no_log=False):
     """
     删除指定目录下所有内容（包含文件及文件夹，默认不包含自身）
     :param path: 字符串，指定目录，推荐绝对路径
     :param self_contain: 布尔值，是否删除path自身，默认False
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 删除成功无返回，删除失败返回字符串报错信息
     """
     try:
@@ -1980,7 +2035,7 @@ def del_all(path, self_contain=False, add_info=""):
                 else:
                     os.remove(i_item)
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}删除文件夹{path}时出错"
 
 
@@ -1988,12 +2043,13 @@ dir_del_all = dir_del = del_all
 
 
 @call_log
-def make_dir(path, del_old=True, add_info=''):
+def make_dir(path, del_old=True, add_info='', no_log=False):
     """
     创建目录(注意：该函数默认会删除已存在目录下所有内容)
     :param path: 字符串，创建的文件夹名称，推荐绝对路径
     :param del_old: 布尔值，是否删除已存在目录及其中文件（夹）并重建目录，默认True
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 创建成功无返回，创建失败返回字符串报错信息
     """
     try:
@@ -2004,18 +2060,19 @@ def make_dir(path, del_old=True, add_info=''):
         else:
             os.makedirs(path)
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}无法创建目录{path}"
 
 
 @call_log
-def copy_file(in_file, path, new_file=None, add_info=''):
+def copy_file(in_file, path, new_file=None, add_info='', no_log=False):
     """
     复制文件到目标路径下
     :param in_file: 字符串，复制文件，要复制的文件名称
     :param path: 字符串，复制文件的目标文件夹名称，推荐绝对路径，如路径不存在，将创建该路径
     :param new_file: 字符串，目标文件，复制后的文件名称，None表示与原文件同名
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 成功返回0，失败返回字符串报错信息
     """
     try:
@@ -2033,37 +2090,38 @@ def copy_file(in_file, path, new_file=None, add_info=''):
         else:
             return f"{add_info}复制文件不存在或非文件{in_file}"
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}复制文件时出错"
 
 
 @call_log
-def make_cloud_dir(path, more=True, more_dir: list = None, add_info=''):
+def make_cloud_dir(path, more=True, more_dir: list = None, add_info='', no_log=False):
     """
     创建云平台 v2.0 结果目录树
     :param path: 字符串，创建结果目录树的路径（tmp父级目录），推荐绝对路径
     :param more: 布尔值，是否需要额外创建分析分析文件夹,默认True
     :param more_dir: 字符串/字符串列表，创建额外分析文件夹的名称，默认创建 analysis 文件夹
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 创建成功无返回，创建失败返回字符串报错信息
     """
     try:
         path = _path_pre_proc(path)
         abs_path = os.path.abspath(path)
         tmp_dir = os.path.join(abs_path, "tmp")
-        err_msg = make_dir(tmp_dir)
+        err_msg = make_dir(tmp_dir, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         res_dir = os.path.join(tmp_dir, "cloud_result")
-        err_msg = make_dir(res_dir)
+        err_msg = make_dir(res_dir, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         err_dir = os.path.join(tmp_dir, "cloud_error")
-        err_msg = make_dir(err_dir)
+        err_msg = make_dir(err_dir, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         svg_dir = os.path.join(tmp_dir, "cloud_svg")
-        err_msg = make_dir(svg_dir)
+        err_msg = make_dir(svg_dir, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         if more:
@@ -2073,22 +2131,23 @@ def make_cloud_dir(path, more=True, more_dir: list = None, add_info=''):
                 more_dir = [more_dir, ]
             for i_dir in more_dir:
                 ana_dir = os.path.join(tmp_dir, i_dir)
-                err_msg = make_dir(ana_dir)
+                err_msg = make_dir(ana_dir, no_log=no_log)
                 if err_msg:
                     return f'{add_info}{err_msg}'
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return f"{add_info}创建结果目录树时出错"
 
 
 @call_log
-def check_dir_item(path, exp_item: list = None, ck_null=True, add_info=''):
+def check_dir_item(path, exp_item: list = None, ck_null=True, add_info='', no_log=False):
     """
     文件夹目录内容检查(存在，空文件)
     :param path: 字符串，检查目录路径，推荐绝对路径
     :param exp_item: 字符串/字符串列表，期望存在的文件列表，None表示将path文件夹内容全部检查
     :param ck_null: 布尔值，是否检查空文件，默认True
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 符合期望返回0，不符合期望返回报错信息列表
     """
     try:
@@ -2106,7 +2165,7 @@ def check_dir_item(path, exp_item: list = None, ck_null=True, add_info=''):
             else:
                 have_item.append(i_exp)
                 if ck_null:
-                    msg = file_null(os.path.join(path, i_exp))
+                    msg = file_null(os.path.join(path, i_exp), no_log=no_log)
                     if msg:
                         null_item.append(i_exp)
         if len(have_item) == 0:
@@ -2120,18 +2179,18 @@ def check_dir_item(path, exp_item: list = None, ck_null=True, add_info=''):
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}检查结果文件时出错", ]
 
 
-def dir_size(path, exp_item, add_info=''):
+def dir_size(path, exp_item, add_info='', no_log=False):
     """搁置，已有空文件检查、单文件大小检查、批量空文件检查，文件大小批量检查意义不大"""
     pass
 
 
 @call_log
 def make_result(path, out_dir, exp_item=None,
-                out2zip='result.zip', out2json: str = None, add_info=''):
+                out2zip='result.zip', out2json: str = None, add_info='', no_log=False):
     """
     创建结果文件压缩包并将压缩包(及json)文件移至云平台2.0要求存储目录
     :param path: 字符串，数据分析结果临时储存目录，推荐绝对路径
@@ -2141,6 +2200,7 @@ def make_result(path, out_dir, exp_item=None,
     :param out2zip: 字符串，结果文件压缩包名称(含后缀)，V2.0要求固定为 result.zip，不建议修改此项
     :param out2json: 字符串，path目录下json结果文件名称(含后缀),None表示无json文件需要转移
     :param add_info: 字符串，附加信息
+    :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回0，错误返回报错信息列表
     """
     try:
@@ -2170,14 +2230,14 @@ def make_result(path, out_dir, exp_item=None,
             zip1.close()
             os.chdir(old_dir)
         except Exception as e:
-            print(e)
+            print(e) if not no_log else 1
             err_msg = f"{add_info}压缩结果文件时发生错误"
             error_list.append(err_msg)
         try:
             res_file = os.path.join(out_dir, 'tmp/cloud_result', base_name)
             shutil.copyfile(out2zip, res_file)
         except Exception as e:
-            print(e)
+            print(e) if not no_log else 1
             err_msg = f"{add_info}复制压缩结果文件时发生错误"
             error_list.append(err_msg)
         if out2json:
@@ -2187,7 +2247,7 @@ def make_result(path, out_dir, exp_item=None,
                 res_file = os.path.join(out_dir, 'tmp/cloud_svg', base_name)
                 shutil.copyfile(out2json, res_file)
             except Exception as e:
-                print(e)
+                print(e) if not no_log else 1
                 err_msg = f"{add_info}复制json结果时发生错误"
                 error_list.append(err_msg)
         if error_list:
@@ -2195,16 +2255,17 @@ def make_result(path, out_dir, exp_item=None,
         else:
             return 0
     except Exception as e:
-        print(e)
+        print(e) if not no_log else 1
         return [f"{add_info}结果文件压缩拷贝时出错", ]
 
 
 @call_log
-def write_log(log_list, log_file):
+def write_log(log_list, log_file, no_log=False):
     """
     日志/报错等信息列表记录到文件
     :param log_list: 字符串/字符串列表，待记录对象
     :param log_file: 字符串，记录文件名称,例如："D:\a.txt"
+    :param no_log: 不打印调用及报错信息，默认为False
     :return:
     """
     if isinstance(log_list, str):
@@ -2217,11 +2278,11 @@ def write_log(log_list, log_file):
 
 
 @call_log
-def write_default_log(log_file):
+def write_default_log(log_file, no_log=False):
     """生成默认报错文档"""
     err_msg = ("程序存在意外的错误，请联系技术支持从后台进行问题排查\n"
                "\t技术支持邮箱：cloudsupport@metware.cn")
-    write_log(log_list=err_msg, log_file=log_file)
+    write_log(log_list=err_msg, log_file=log_file, no_log=no_log)
 
 
 if __name__ == "__main__":
