@@ -47,6 +47,7 @@ Maintenance records:
 * 修复 file_xlsx2txt、pre_check_file_content处理文件含有"异常的问题
 * 修复 pre_check_file_content额外处理缺失数据的问题
 * 新增 所有函数调用及报错时是否打印信息的控制，由参数no_log控制，默认打印
+** 修改 file_encoding、check_file_base函数，默认使用use_1=False
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -452,7 +453,7 @@ def num_ban(num: float, ban_num: list = None, add_info="", no_log=False):
             ban_num = []
         error_list = []
         for i in ban_num:
-            if i == num:
+            if i == float(num):
                 error_list.append(i)
         if not error_list:
             return 0
@@ -591,12 +592,12 @@ def file_size(in_file, max_size="50M", add_info="", no_log=False):
 
 
 @call_log
-def file_encoding(in_file, allowed_encode: list = None, use_1=True, add_info="", no_log=False):
+def file_encoding(in_file, allowed_encode: list = None, use_1=False, add_info="", no_log=False):
     """
     检查编码格式是否在允许范围内（默认UTF-8）（二进制文件如xlsx，无法检测文件编码）
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
     :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写,默认UTF-8
-    :param use_1: 布尔值，默认True，表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
+    :param use_1: 布尔值，默认False，True表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
     :param add_info: 字符串，附加信息
     :param no_log: 不打印调用及报错信息，默认为False
     :return: 范围内返回0，范围外返回字符串，推测的文件编码格式（大写），二进制文件返回None
@@ -696,7 +697,7 @@ def file_xlsx2txt(in_file, out_file: str = None, sheet_no=1, sep="\t", na_values
 
 @call_log
 def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
-                    ck_size=True, ck_encoding=True, use_1=True, do_convert=True,
+                    ck_size=True, ck_encoding=True, use_1=False, do_convert=True,
                     suffix_list: list = None,
                     max_size="50M",
                     allowed_encode: list = None,
@@ -712,7 +713,7 @@ def check_file_base(in_file, ck_exist=True, ck_suffix=True, ck_null=True,
     :param ck_null: 布尔值，是否检查空文件，默认True
     :param ck_size: 布尔值，是否检查大小，默认True
     :param ck_encoding: 布尔值，是否检查编码格式，默认True
-    :param use_1: 布尔值，默认True，表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
+    :param use_1: 布尔值，默认False，True表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
     :param do_convert: 布尔值，当检查到编码格式不符合期望编码格式时，是否进行转码，仅当提供一种allowed_encode时有效，默认True
     :param suffix_list: 字符串/字符串列表，允许使用的格式名，不区分大小写，默认txt
     :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
@@ -1253,6 +1254,8 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
         if rm_first:
             in_list = in_list[1:]
         err_list = []
+        if isinstance(ban_num, float) or isinstance(ban_num, int):
+            ban_num = [ban_num, ]
         for i in range(1, len(in_list) + 1):
             msg = num_ban(num=in_list[i - 1], ban_num=ban_num, add_info="", no_log=True)
             if msg:
@@ -2271,7 +2274,8 @@ def write_log(log_list, log_file, no_log=False):
     if isinstance(log_list, str):
         log_list = [log_list, ]
     with codecs.open(log_file, "w", encoding="UTF-8") as log:
-        log.write("很抱歉您的任务运行失败，原因是在您的输入文件里发现存在以下问题，请根据问题描述结合工具的详细说明进行修改后重新投递：\n")
+        if not no_log:
+            log.write("很抱歉您的任务运行失败，原因是在您的输入文件里发现存在以下问题，请根据问题描述结合工具的详细说明进行修改后重新投递：\n")
         for i_log in log_list:
             i_log = ">>> " + i_log + "\n"
             log.write(i_log)
