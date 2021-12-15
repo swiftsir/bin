@@ -49,6 +49,8 @@ Maintenance records:
 * 新增 所有函数调用及报错时是否打印信息的控制，由参数no_log控制，默认打印
 ** 修改 file_encoding、check_file_base函数，默认使用use_1=False
 * 修改 check_file_content函数，行列固定内容检查报错语优化
+2021.12.15
+* 修复 pre_check_file_content函数表头检查报错语bug，优化缺失检查报错语
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -1690,7 +1692,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 if ck_row_na:
                     err_msg = list_na(in_list=in_list, na_list=na_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}，"
+                                          f"或将内容复制到xlsx表格中，检查是否为分隔符使用错误导致")
         if ck_col_base:
             if ck_col_list == -1:
                 ck_col_list = range(2, col_number + 1)
@@ -1720,7 +1723,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 if ck_col_na:
                     err_msg = list_na(in_list=in_list, na_list=na_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}，"
+                                          f"或将内容复制到xlsx表格中，检查是否为分隔符使用错误导致")
         if ck_row_fix and row_fix_content is not None:
             in_list = get_row2list(in_file=in_file, row_no=row_fix_no, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
