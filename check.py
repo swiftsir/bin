@@ -48,6 +48,7 @@ Maintenance records:
 * 修复 pre_check_file_content额外处理缺失数据的问题
 * 新增 所有函数调用及报错时是否打印信息的控制，由参数no_log控制，默认打印
 ** 修改 file_encoding、check_file_base函数，默认使用use_1=False
+* 修改 check_file_content函数，行列固定内容检查报错语优化
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -1461,7 +1462,7 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
             cmd = f'mkdir -p {out_dir} && cp {in_file} {new_file} && sed -i "/^\s*$/d" {new_file}'  # 去空白行,仅限linux
             print(cmd) if not no_log else 1
             os.system(cmd)
-        df = pd.read_csv(new_file, sep=sep, header=None, na_filter=False, encoding=encoding, quotechar=sep,
+        df = pd.read_csv(new_file, sep=sep, header=None, na_filter=False, encoding=encoding,  # quotechar=sep,
                          na_values="", keep_default_na=False)
         for i in range(df.shape[0]):  # 去元素前后空白
             for j in range(df.shape[1]):
@@ -1728,7 +1729,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if in_list != list(row_fix_content):
                 in_title = ",".join(map(lambda x: str(x), in_list))
                 allowed_title = ",".join(map(lambda x: str(x), row_fix_content))
-                err_msg = f"{add_info}输入文件{in_file_name}第{row_fix_no}行为{in_title}，该行必须为{allowed_title}，请检查"
+                err_msg = f"{add_info}输入文件{in_file_name}第{row_fix_no}行必须为{allowed_title}，实际该行为{in_title}，请检查"
                 error_list.append(err_msg)
         if ck_col_fix and col_fix_content is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_fix_no, sep=sep, rm_blank=rm_blank,
@@ -1738,7 +1739,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if in_list != list(col_fix_content):
                 in_title = ",".join(map(lambda x: str(x), in_list))
                 allowed_title = ",".join(map(lambda x: str(x), col_fix_content))
-                err_msg = f"{add_info}输入文件{in_file_name}第{col_fix_no}列为{in_title}，该列必须为{allowed_title}，请检查"
+                err_msg = f"{add_info}输入文件{in_file_name}第{col_fix_no}列必须为{allowed_title}，实际该列为{in_title}，请检查"
                 error_list.append(err_msg)
         row_flag = []
         if ck_row_type:
