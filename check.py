@@ -60,6 +60,7 @@ import codecs
 import chardet
 import subprocess
 import shutil
+import textwrap
 import pandas as pd
 from collections import Counter
 from zipfile import ZipFile
@@ -68,7 +69,6 @@ from functools import wraps
 
 # import json
 # import glob
-# import argparse
 
 
 def call_log(func):
@@ -145,9 +145,9 @@ def _get_encoding(in_file, confidence: float = 0.6, line=3000):
 
 def _get_encoding2(in_file):
     """
-    推测文件编码格式，备选（linux file）
+    检测文件编码格式，备选（linux file）
     :param in_file: 字符串，文件名
-    :return: 正常返回推测的文件编码格式（大写）
+    :return: 正常返回检测的文件编码格式（大写）
     """
     code_format = os.popen(f"file --mime-encoding {in_file}").read().rstrip('\n').split(':')[1].upper()
     return code_format
@@ -211,6 +211,22 @@ def _path_pre_proc(path: str):
     path = path.rstrip("\\")
     path = path.rstrip("\\\\")
     return path
+
+
+def _wrap(err_msg: str, max_len: int = 40, head: str = " ", self_cut: bool = True, self_len=60):
+    """
+    预处理报错文本，根据文本长度确定是否换行
+    :param err_msg: 报错文本信息
+    :param max_len: 开头不添加换行符门槛的最短文本长度（优先级低于开启self_cut的self_cut_len）
+    :param head: 开头头换行符前额外的字符信息
+    :param self_cut: 报错语自身是否裁剪
+    :param self_len: 报错语自身裁剪字符长度上限
+    :return:
+    """
+    if self_cut and len(err_msg) > self_len:
+        return f"{head}\n" + textwrap.fill(text=err_msg, width=self_len)
+    else:
+        return f"{head}\n{err_msg}" if len(err_msg) > max_len else err_msg
 
 
 @call_log
@@ -283,7 +299,7 @@ def str_format(in_str: str, re_obj=None, re_ban_body=None, ck_head=True, re_ban_
             msg3 = ""
             ill_list = re.findall(re_ban_body, in_str)
             if ill_list:
-                msg1 = f"{add_info}在{s_str}中发现非法字符：{_join_str(ill_list)}；"
+                msg1 = f"{add_info}在{s_str}中发现非法字符：{_wrap(_join_str(ill_list))}；"
             ill_start = re.findall(re_ban_head, in_str)
             if ill_start:
                 msg2 = f"{add_info}在{s_str}中发现非法起始字符：{_join_str(ill_start)}"
@@ -318,7 +334,7 @@ def str_chinese(in_str, other_str="", add_info='', no_log=False):
             if "\u4e00" <= i_str <= "\u9fa5":
                 str_list.append(i_str)
         if len(str_list) != 0:
-            return f'{add_info}{s_str}中发现中文字符：{_join_str(str_list)}'
+            return f'{add_info}{s_str}中发现中文字符：{_wrap(_join_str(str_list))}'
         else:
             return 0
     except Exception as e:
@@ -348,7 +364,7 @@ def str_ban(in_str, ban_list=None, other_str="", add_info="", no_log=False):
         if not error_list:
             return 0
         else:
-            return f'{add_info}{s_str}中发现非法字符：{_join_str(error_list)}'
+            return f'{add_info}{s_str}中发现非法字符：{_wrap(_join_str(error_list))}'
     except Exception as e:
         print(e) if not no_log else 1
         return f"{add_info}字符串禁用检查时出错"
@@ -461,7 +477,7 @@ def num_ban(num: float, ban_num: list = None, add_info="", no_log=False):
         if not error_list:
             return 0
         else:
-            return f"{add_info}发现禁用数值：{_join_str(error_list)}"
+            return f"{add_info}发现禁用数值：{_wrap(_join_str(error_list))}"
     except Exception as e:
         print(e) if not no_log else 1
         return f"{add_info}数值禁用检查时出错"
@@ -545,7 +561,7 @@ def file_suffix(in_file, suffix_list: list = None, add_info="", no_log=False):
             if re.search(re_obj, in_file):
                 return 0
         in_file_name = os.path.basename(in_file)
-        return f"{add_info}{in_file_name}后缀不被支持，只允许使用{_join_str(suffix_list)}作为后缀的文件"
+        return f"{add_info}{in_file_name}后缀不被支持，只允许使用{_wrap(_join_str(suffix_list))}作为后缀的文件"
     except Exception as e:
         print(e) if not no_log else 1
         return f"{add_info}文件后缀检查时出错"
@@ -848,7 +864,7 @@ def file_line_dup(in_file, add_info='', no_log=False):
                 res_list.append(line)
         if err:
             in_file_name = os.path.basename(in_file)
-            return f'{add_info}{in_file_name}发现重复行，行号：{_join_str(err)}'
+            return f'{add_info}{in_file_name}发现重复行，行号：{_wrap(_join_str(err), self_len=80)}'
         else:
             return 0
     except Exception as e:
@@ -1050,7 +1066,7 @@ def list_dup(in_list, key='元素', add_info="", no_log=False):
         if not dup_item:
             return 0
         else:
-            return f"{add_info}存在重复的{key}{_join_str(dup_item)}，请检查"
+            return f"{add_info}存在重复的{key}:{_wrap(_join_str(dup_item))}，请检查"
     except Exception as e:
         print(e) if not no_log else 1
         return f"{add_info}检查重复时出错"
@@ -1143,7 +1159,7 @@ def list_format(in_list, re_obj=None, re_ban_body=None, ck_head=True, re_ban_hea
             if err_msg:
                 error_item.append(i)
         if error_item:
-            return f"{add_info}检查到不合规{key}{_join_str(error_item)}"
+            return f"{add_info}检查到不合规{key}{_wrap(_join_str(error_item))}"
         else:
             return 0
     except Exception as e:
@@ -1202,6 +1218,12 @@ def list_type(in_list, exp_type='float', rm_first=False, add_info="", no_log=Fal
         new_list = list(map(eval(exp_type.lower()), in_list))
         return new_list
     except ValueError as e:
+        if exp_type.lower() == "float":
+            exp_type = "数值"
+        elif exp_type.lower() == "int":
+            exp_type = "整数"
+        else:
+            pass
         return f"{add_info}检查到非{exp_type}类值：" + str(e).split(':')[-1]
     except Exception as e:
         print(e) if not no_log else 1
@@ -1233,7 +1255,7 @@ def list_num_range(in_list, min_num=float('-inf'), max_num=float('inf'), rm_firs
         if err_list:
             min_num = '负无穷' if min_num == float('-inf') else min_num
             max_num = '正无穷' if max_num == float('inf') else max_num
-            return f"{add_info}第{_join_str(err_list)}个{key}超出界限，下限为{min_num}，上限为{max_num}"
+            return f"{add_info}下限为{min_num}，上限为{max_num}，检查到：{_wrap('第' + _join_str(err_list))}个{key}超出界限"
         else:
             return 0
     except Exception as e:
@@ -1264,7 +1286,8 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
             if msg:
                 err_list.append(i)
         if err_list:
-            return f"{add_info}第{_join_str(err_list)}个{key}为禁用值，禁用值为{_join_str(ban_num)}"
+            return f"{add_info}禁用值为{_join_str(ban_num)}，检查到：" \
+                   f"{_wrap('第' + _join_str(err_list), self_len=80)}个{key}为禁用值，"
         else:
             return 0
     except Exception as e:
@@ -1403,10 +1426,10 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
                 allowed_title = "\t".join(list(map(lambda x: str(x), row_fix_content)))
                 if set_range:
                     msg = f"{add_info}{in_file_name}第{row_fix_no}行" \
-                          f"第{range_min}至{max_index + 1}个元素必须为：{allowed_title}"
+                          f"第{range_min}至{max_index + 1}个元素必须为：{_wrap(allowed_title)}"
                     error_list.append(msg)
                 else:
-                    error_list.append(f"{add_info}{in_file_name}第{row_fix_no}行必须为：{allowed_title}")
+                    error_list.append(f"{add_info}{in_file_name}第{row_fix_no}行必须为：{_wrap(allowed_title)}")
         if ck_col_fix and col_fix_content is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_fix_no, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
@@ -1418,10 +1441,10 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
                 allowed_title = "\t".join(list(map(lambda x: str(x), col_fix_content)))
                 if set_range:
                     msg = f"{add_info}{in_file_name}第{row_fix_no}列" \
-                          f"第{range_min}至{max_index + 1}个元素必须为：{allowed_title}"
+                          f"第{range_min}至{max_index + 1}个元素必须为：{_wrap(allowed_title)}"
                     error_list.append(msg)
                 else:
-                    error_list.append(f"{add_info}{in_file_name}第{row_fix_no}列必须为：{allowed_title}")
+                    error_list.append(f"{add_info}{in_file_name}第{row_fix_no}列必须为：{_wrap(allowed_title)}")
         if len(error_list) == 0:
             return 0
         else:
@@ -1474,9 +1497,12 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
     except pd.errors.ParserError as e:
         print(e) if not no_log else 1
         list1 = str(e).strip().split(' ')
-        return f"{add_info}[除空白行]首行包含{list1[-7]}列，而检测到第{list1[-3].strip(',')}行包含{list1[-1]}列，" \
-               f"所有行的列数不应超过首行，请检查：1.是否在首行两个元素间有且只有一个分隔符[{sep}]2.第{list1[-3].strip(',')}行" \
-               f"及后续行是否错误使用分隔符[{sep}]"
+        sep = "Tab制表符" if sep == "\t" else sep
+        sep = "空格" if sep == " " else sep
+        return f"{add_info}[除空白行]首行包含{list1[-7]}列，而检测到第{list1[-3].strip(',')}行包含{list1[-1]}列，\n" \
+               f"所有行的列数不应超过首行，请检查：\n" \
+               f"1.是否在首行每两个元素间有且只有一个[{sep}]作为分隔符\n" \
+               f"2.第{list1[-3].strip(',')}行及后续行是否错误使用分隔符[{sep}]"
     except Exception as e:
         print(e) if not no_log else 1
         return f"{add_info}文件详细内容检查预处理时出错"
@@ -1615,18 +1641,18 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 in_line = get_row_line(in_file=in_file, line_num=row, no_log=True)
                 err_msg = line_sep(in_line, sep_r=sep_r, no_log=True)
                 if err_msg:
-                    error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
+                    error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(err_msg, self_cut=False)}")
         if ck_header:
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
             tail_length = get_col_num(in_file=in_file, sep=sep, no_log=no_log)
             if len(in_list) < tail_length:
-                msg = f"{add_info}输入文件{in_file_name}的首行（标题行）部分为空，无法识别标题，请检查是否在两个行名间有且只有一个分隔符"
+                msg = f"{add_info}输入文件{in_file_name}的首行（标题行）部分为空，无法识别标题，请检查是否在两个列名间有且只有一个分隔符"
                 error_list.append(msg)
         if ck_line_dup:
             err_msg = file_line_dup(in_file=in_file, no_log=no_log)
             if err_msg:
-                error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
+                error_list.append(f"{add_info}输入文件{in_file_name}：{_wrap(err_msg, self_cut=False)}")
         if error_list:  # 维度检查前需确保分隔符正确
             return error_list
         if ck_row_num and row_num_exp is not None:
@@ -1634,13 +1660,13 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
             err_msg = list_length(in_list=in_list, exp_len=row_num_exp, no_log=no_log)
             if err_msg:
-                error_list.append(f"{add_info}输入文件{in_file_name}行数有误：{err_msg}")
+                error_list.append(f"{add_info}输入文件{in_file_name}行数有误：{_wrap(err_msg, self_cut=False)}")
         if ck_col_num and col_num_exp is not None:
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
             err_msg = list_length(in_list=in_list, exp_len=col_num_exp, no_log=no_log)
             if err_msg:
-                error_list.append(f"{add_info}输入文件{in_file_name}列数有误：{err_msg}")
+                error_list.append(f"{add_info}输入文件{in_file_name}列数有误：{_wrap(err_msg, self_cut=False)}")
         if ck_row_num and row_num_exp is None and (row_min_num_exp or row_max_num_exp) is not None:
             if row_min_num_exp is None:
                 row_min_num_exp = 1
@@ -1650,7 +1676,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
             err_msg = list_length(in_list=in_list, min_len=row_min_num_exp, max_len=row_max_num_exp, no_log=no_log)
             if err_msg:
-                error_list.append(f"{add_info}输入文件{in_file_name}行数范围有误：{err_msg}")
+                error_list.append(f"{add_info}输入文件{in_file_name}行数范围有误：{_wrap(err_msg, self_cut=False)}")
         if ck_col_num and col_num_exp is None and (col_min_num_exp or col_max_num_exp) is not None:
             if col_min_num_exp is None:
                 col_min_num_exp = 1
@@ -1660,7 +1686,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
             err_msg = list_length(in_list=in_list, min_len=col_min_num_exp, max_len=col_max_num_exp, no_log=no_log)
             if err_msg:
-                error_list.append(f"{add_info}输入文件{in_file_name}列数范围有误：{err_msg}")
+                error_list.append(f"{add_info}输入文件{in_file_name}列数范围有误：{_wrap(err_msg, self_cut=False)}")
         if error_list:  # 行列内容检查前需确保维度正确
             return error_list
         if ck_row_base:
@@ -1676,24 +1702,25 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 if ck_row_length and row_length is not None:
                     err_msg = list_length(in_list=in_list, exp_len=row_length, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(err_msg, self_cut=False)}")
                 elif not ck_row_length and ck_row_length_range:
                     err_msg = list_range(in_list=in_list, min_len=row_min_len, max_len=row_max_len, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(err_msg, self_cut=False)}")
                 if ck_row_dup:
                     err_msg = list_dup(in_list=in_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行有重复：{err_msg}，该行不允许重复值")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行有重复："
+                                          f"{_wrap(err_msg, self_cut=False)}，该行不允许重复值")
                 if ck_row_ban and ban_list is not None:
                     err_msg = list_ban(in_list=in_list, ban_list=ban_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行检查到非法元素{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行检查到非法元素{_wrap(err_msg, self_cut=False)}")
                 if ck_row_na:
                     err_msg = list_na(in_list=in_list, na_list=na_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}，"
-                                          f"或将内容复制到xlsx表格中，检查是否为分隔符使用错误导致")
+                        err_msg += "，可将内容复制到xlsx表格中，检查是否为分隔符使用错误导致"
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(err_msg, self_cut=False)}")
         if ck_col_base:
             if ck_col_list == -1:
                 ck_col_list = range(2, col_number + 1)
@@ -1707,24 +1734,25 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                 if ck_col_length and col_length is not None:
                     err_msg = list_length(in_list=in_list, exp_len=col_length, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(err_msg, self_cut=False)}")
                 elif not ck_col_length and ck_col_length_range:
                     err_msg = list_range(in_list=in_list, min_len=col_min_len, max_len=col_max_len, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(err_msg, self_cut=False)}")
                 if ck_col_dup:
                     err_msg = list_dup(in_list=in_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列有重复：{err_msg}，该列不允许重复值")
+                        err_msg += "，该列不允许重复值"
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列有重复：{_wrap(err_msg, self_cut=False)}")
                 if ck_col_ban and ban_list is not None:
                     err_msg = list_ban(in_list=in_list, ban_list=ban_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列检查到非法元素{err_msg}")
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列检查到非法元素{_wrap(err_msg, self_cut=False)}")
                 if ck_col_na:
                     err_msg = list_na(in_list=in_list, na_list=na_list, no_log=True)
                     if err_msg:
-                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}，"
-                                          f"或将内容复制到xlsx表格中，检查是否为分隔符使用错误导致")
+                        err_msg += "，可将内容复制到xlsx表格中，检查是否为分隔符使用错误导致"
+                        error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(err_msg, self_cut=False)}")
         if ck_row_fix and row_fix_content is not None:
             in_list = get_row2list(in_file=in_file, row_no=row_fix_no, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
@@ -1733,7 +1761,9 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if in_list != list(row_fix_content):
                 in_title = ",".join(map(lambda x: str(x), in_list))
                 allowed_title = ",".join(map(lambda x: str(x), row_fix_content))
-                err_msg = f"{add_info}输入文件{in_file_name}第{row_fix_no}行必须为{allowed_title}，实际该行为{in_title}，请检查"
+                in_title = in_title[:45] + " …… " if len(in_title) > 50 else in_title
+                err_msg = f"{add_info}输入文件{in_file_name}第{row_fix_no}行必须为{_wrap(allowed_title, self_cut=False)}，\n" \
+                          f"实际该行为{in_title}，请检查"
                 error_list.append(err_msg)
         if ck_col_fix and col_fix_content is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_fix_no, sep=sep, rm_blank=rm_blank,
@@ -1743,7 +1773,9 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             if in_list != list(col_fix_content):
                 in_title = ",".join(map(lambda x: str(x), in_list))
                 allowed_title = ",".join(map(lambda x: str(x), col_fix_content))
-                err_msg = f"{add_info}输入文件{in_file_name}第{col_fix_no}列必须为{allowed_title}，实际该列为{in_title}，请检查"
+                in_title = in_title[:45] + " …… " if len(in_title) > 50 else in_title
+                err_msg = f"{add_info}输入文件{in_file_name}第{col_fix_no}列必须为{_wrap(allowed_title, self_cut=False)}，\n" \
+                          f"实际该列为{in_title}，请检查"
                 error_list.append(err_msg)
         row_flag = []
         if ck_row_type:
@@ -1758,18 +1790,18 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                                        fill_null=fill_null, null_list=null_list, no_log=True)
                 msg = list_type(in_list=in_list, exp_type=exp_type, rm_first=rm_first, no_log=True)
                 if isinstance(msg, str):
-                    error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{msg}")
+                    error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(msg, self_cut=False)}")
                 else:
                     if exp_type in ['float', 'int']:
                         row_flag.append(1)
                     if ck_row_num_range:
                         err_msg = list_num_range(in_list=msg, min_num=row_min_num, max_num=row_max_num, no_log=True)
                         if err_msg:
-                            error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
+                            error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(err_msg, self_cut=False)}")
                     if ck_row_num_ban and ban_num is not None:
                         err_msg = list_num_ban(in_list=msg, ban_num=ban_num, no_log=True)
                         if err_msg:
-                            error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{err_msg}")
+                            error_list.append(f"{add_info}输入文件{in_file_name}第{row}行{_wrap(err_msg, self_cut=False)}")
         col_flag = []
         if ck_col_type:
             if ck_col_type_list == -1:
@@ -1783,18 +1815,18 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
                                        fill_null=fill_null, null_list=null_list, no_log=True)
                 msg = list_type(in_list=in_list, exp_type=exp_type, rm_first=rm_first, no_log=True)
                 if isinstance(msg, str):
-                    error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{msg}")
+                    error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(msg, self_cut=False)}")
                 else:
                     if exp_type in ['float', 'int']:
                         col_flag.append(1)
                     if ck_col_num_range:
                         err_msg = list_num_range(in_list=msg, min_num=col_min_num, max_num=col_max_num, no_log=True)
                         if err_msg:
-                            error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
+                            error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(err_msg, self_cut=False)}")
                     if ck_col_num_ban and ban_num is not None:
                         err_msg = list_num_ban(in_list=msg, ban_num=ban_num, no_log=True)
                         if err_msg:
-                            error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{err_msg}")
+                            error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(err_msg, self_cut=False)}")
         if row_flag and ck_row_standard:
             if ck_standard_list == -1:
                 ck_standard_list = range(2, row_number + 1)
@@ -1829,7 +1861,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             err_msg = file_com_row_col_num(in_file=in_file, sep=sep, row_greater=row_greater,
                                            contain_equal=contain_equal, no_log=no_log)
             if err_msg:
-                error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
+                error_list.append(f"{add_info}输入文件{in_file_name}{_wrap(err_msg, self_cut=False)}")
         if len(error_list) == 0:
             return 0
         else:
@@ -1862,9 +1894,9 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
             other = ''
             err = []
             if ck_1_in_2 and len(list1) > len(list2):
-                other += f'，且存在超出的{key}'
+                other += f'存在超出的{key}，且'
             elif not ck_1_in_2 and len(list1) != len(list2):
-                other += "，且长度不同"
+                other += "长度不同，且"
             n = min(len(list1), len(list2))
             for i in range(1, n + 1):
                 if list1[i - 1] != list2[i - 1]:
@@ -1872,7 +1904,7 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
                     err.append(list1[i - 1])  # 报元素名
             if len(err) != 0:
                 # msg = f"{add_info}发现不同{key}，分别为第{_join_str(err)}个{other} "  # 报元素位置
-                msg = f"{add_info}发现不同{key}，分别为{_join_str(err)}{other} "  # 报元素名
+                msg = f"{add_info}{other}发现不同{key}，分别为：{_wrap(_join_str(err))} "  # 报元素名
                 return msg
             else:
                 return 0
@@ -1884,10 +1916,11 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
                 return 0
             diff1 = list(set1.difference(set2))
             if ck_1_in_2 and diff1:
-                return f"{add_info}发现多出的{key}，分别为{_join_str(diff1)}"
+                return f"{add_info}发现多出的{key}，分别为:{_wrap(_join_str(diff1))}"
             elif not ck_1_in_2:
                 diff2 = list(set2.difference(set1))
-                return f"{add_info}发现不同的{key}，分别为:{_join_str(diff1)};{_join_str(diff2)}。"
+                return f"{add_info}发现不同的{key}，分别为:{_wrap(_join_str(diff1))}\n" \
+                       f"{_wrap('和'+_join_str(diff2))}。"
             else:
                 return 0
     except Exception as e:
@@ -2001,7 +2034,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
             in_str_list = list(map(lambda x: str(x), in_str_list))
             str_item = set(in_str_list).difference(set(in_list))
             if str_item:
-                error_list.append(f"{add_info}{in_file_name}第{row_no}行不含{_join_str(str_item)}元素")
+                error_list.append(f"{add_info}{in_file_name}第{row_no}行不含{_wrap(_join_str(str_item), self_len=80)}元素")
         if ck_col and col_no is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_no, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=True)
@@ -2009,7 +2042,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
             in_str_list = list(map(lambda x: str(x), in_str_list))
             str_item = set(in_str_list).difference(set(in_list))
             if str_item:
-                error_list.append(f"{add_info}{in_file_name}第{col_no}列不含{_join_str(str_item)}元素")
+                error_list.append(f"{add_info}{in_file_name}第{col_no}列不含{_wrap(_join_str(str_item), self_len=80)}元素")
         if len(error_list) != 0:
             return error_list
         else:
@@ -2179,11 +2212,11 @@ def check_dir_item(path, exp_item: list = None, ck_null=True, add_info='', no_lo
         if len(have_item) == 0:
             return [f'{add_info}检测不到结果文件，请检查', ]
         elif len(no_item) != 0 and len(null_item) == 0:
-            return [f'{add_info}检测不到结果文件：{_join_str(no_item)}，请检查', ]
+            return [f'{add_info}检测不到结果文件：{_wrap(_join_str(no_item))}，请检查', ]
         elif len(no_item) != 0 and len(null_item) != 0:
-            return [f'{add_info}检测不到结果文件：{_join_str(no_item)}且以下结果文件为空：{_join_str(null_item)}', ]
+            return [f'{add_info}检测不到结果文件：{_wrap(_join_str(no_item))}且以下结果文件为空：{_wrap(_join_str(null_item))}', ]
         elif len(no_item) == 0 and len(null_item) != 0:
-            return [f'{add_info}检测到以下结果文件为空：{_join_str(null_item)}', ]
+            return [f'{add_info}检测到以下结果文件为空：{_wrap(_join_str(null_item))}', ]
         else:
             return 0
     except Exception as e:
