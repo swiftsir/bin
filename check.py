@@ -213,7 +213,7 @@ def _path_pre_proc(path: str):
     return path
 
 
-def _wrap(err_msg: str, max_len: int = 40, head: str = " ", self_cut: bool = True, self_len=60):
+def _wrap(err_msg: str, max_len: int = 40, head: str = " ", self_cut: bool = True, self_len=100):
     """
     预处理报错文本，根据文本长度确定是否换行
     :param err_msg: 报错文本信息
@@ -864,7 +864,7 @@ def file_line_dup(in_file, add_info='', no_log=False):
                 res_list.append(line)
         if err:
             in_file_name = os.path.basename(in_file)
-            return f'{add_info}{in_file_name}发现重复行，行号：{_wrap(_join_str(err), self_len=80)}'
+            return f'{add_info}{in_file_name}发现重复行，行号：{_wrap(_join_str(err), self_len=160)}'
         else:
             return 0
     except Exception as e:
@@ -1287,7 +1287,7 @@ def list_num_ban(in_list, ban_num: list = None, rm_first=False, key='数值', ad
                 err_list.append(i)
         if err_list:
             return f"{add_info}禁用值为{_join_str(ban_num)}，检查到：" \
-                   f"{_wrap('第' + _join_str(err_list), self_len=80)}个{key}为禁用值，"
+                   f"{_wrap('第' + _join_str(err_list), self_len=160)}个{key}为禁用值，"
         else:
             return 0
     except Exception as e:
@@ -2034,7 +2034,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
             in_str_list = list(map(lambda x: str(x), in_str_list))
             str_item = set(in_str_list).difference(set(in_list))
             if str_item:
-                error_list.append(f"{add_info}{in_file_name}第{row_no}行不含{_wrap(_join_str(str_item), self_len=80)}元素")
+                error_list.append(f"{add_info}{in_file_name}第{row_no}行不含{_wrap(_join_str(str_item))}元素")
         if ck_col and col_no is not None:
             in_list = get_col2list(in_file=in_file, col_no=col_no, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=True)
@@ -2042,7 +2042,7 @@ def check_str_in_file_line(in_str, in_file, ck_row=True, ck_col=True, row_no: in
             in_str_list = list(map(lambda x: str(x), in_str_list))
             str_item = set(in_str_list).difference(set(in_list))
             if str_item:
-                error_list.append(f"{add_info}{in_file_name}第{col_no}列不含{_wrap(_join_str(str_item), self_len=80)}元素")
+                error_list.append(f"{add_info}{in_file_name}第{col_no}列不含{_wrap(_join_str(str_item))}元素")
         if len(error_list) != 0:
             return error_list
         else:
