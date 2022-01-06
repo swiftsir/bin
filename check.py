@@ -1455,7 +1455,8 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
 
 
 @call_log
-def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="utf-8", add_info="", no_log=False):
+def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="utf-8", rm_space: bool = True,
+                           add_info="", no_log=False):
     """
     文件详细内容检查预处理，自动消除BOM，注意new_file与in_file为同一文件时，处理后将会替换旧文件，已内置于check_file_content
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1463,6 +1464,7 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
     :param new_file: 字符串，处理后对象名，将保存到out_dir目录下,默认与原文件同名
     :param sep: 字符串，分隔符，默认"\t"
     :param encoding: 字符串，输入及输出文件编码格式，不区分大小写,默认utf-8，不推荐修改
+    :param rm_space: 布尔值，是否去除元素前后空格，影响检查速度，默认True
     :param add_info: 字符串，附加信息
     :param no_log: 不打印调用及报错信息，默认为False
     :return: 正常返回0，异常返回字符串报错信息
@@ -1489,10 +1491,11 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
             os.system(cmd)
         df = pd.read_csv(new_file, sep=sep, header=None, na_filter=False, encoding=encoding,  # quotechar=sep,
                          na_values="", keep_default_na=False)
-        for i in range(df.shape[0]):  # 去元素前后空白
-            for j in range(df.shape[1]):
-                tem = str(df.iloc[i, j]).strip()
-                df.iloc[i, j] = tem
+        if rm_space:
+            for i in range(df.shape[0]):  # 去元素前后空白
+                for j in range(df.shape[1]):
+                    tem = str(df.iloc[i, j]).strip()
+                    df.iloc[i, j] = tem
         df.to_csv(new_file, sep=sep, index=0, header=None, quotechar=sep)
     except pd.errors.ParserError as e:
         print(e) if not no_log else 1
@@ -1511,7 +1514,7 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
 
 
 @call_log
-def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
+def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space: bool = True,
                        sep="\t", rm_blank=True, fill_null=False, null_list=None,
                        ck_sep=False, sep_r=r'\t',
                        ck_header=False, ck_line_dup=False,
@@ -1547,6 +1550,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
     :param out_dir: 字符串，处理后对象输出目录，推荐os.path.join(args.outdir,"tmp/analysis")
     :param new_file: 字符串，处理后对象名，将保存到out_dir目录下,默认与原文件同名
     :param pre_check: 布尔值，是否调用pre_check_file_content进行预处理，默认True
+    :param rm_space: 布尔值，是否去除元素前后空格，影响检查速度，默认True
     :param sep: 字符串，分隔符，默认"\t"
     :param rm_blank: 布尔值，检查时是否移除该列元素前后空白，默认True
     :param fill_null: 布尔值，检查时是否将缺失数据统一替换为NA，默认True
@@ -1629,7 +1633,7 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True,
             # new_file = os.path.join(os.path.dirname(os.path.abspath(in_file)), os.path.basename(new_file))  # 同路径
         if pre_check:
             err_msg = pre_check_file_content(in_file, out_dir=out_dir, new_file=new_file, sep=sep, encoding='utf-8',
-                                             no_log=no_log)
+                                             rm_space=rm_space, no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}{err_msg}")
                 return error_list
@@ -1920,7 +1924,7 @@ def com_list(list1: list, list2: list, order_strict=False, rm_first=False,
             elif not ck_1_in_2:
                 diff2 = list(set2.difference(set1))
                 return f"{add_info}发现不同的{key}，分别为:{_wrap(_join_str(diff1))}\n" \
-                       f"{_wrap('和'+_join_str(diff2))}。"
+                       f"{_wrap('和' + _join_str(diff2))}。"
             else:
                 return 0
     except Exception as e:
