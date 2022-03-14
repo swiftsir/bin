@@ -51,6 +51,8 @@ Maintenance records:
 * 修改 check_file_content函数，行列固定内容检查报错语优化
 2021.12.15
 * 修复 pre_check_file_content函数表头检查报错语bug，优化缺失检查报错语
+2022.02.14
+* 优化 pre_check_file_content去除空格的检查速度
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -533,7 +535,7 @@ def file_exist(in_file, add_info="", no_log=False):
             return 0
         else:
             in_file_name = os.path.basename(in_file)
-            return f"{add_info}输入文件文件{in_file_name}不存在，请检查"
+            return f"{add_info}输入文件{in_file_name}不存在，请检查"
     except Exception as e:
         print(e) if not no_log else 1
         return f"{add_info}文件存在检查时出错"
@@ -1490,12 +1492,22 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
             print(cmd) if not no_log else 1
             os.system(cmd)
         df = pd.read_csv(new_file, sep=sep, header=None, na_filter=False, encoding=encoding,  # quotechar=sep,
-                         na_values="", keep_default_na=False)
+                         na_values="", dtype='str', keep_default_na=False)
+        df.columns = list(map(str, df.columns.tolist()))
+        # if any("Unnamed: " in s for s in list(df.columns)):
+        #     print("首行分隔符混用")
+        #     return f"文件详细内容检查预处理时出错，可将数据复制到xlsx中进行检查检查：\n" \
+        #            f"1.首行是否存在分隔符[{sep}]混用\n" \
+        #            f"2.行尾是否包含冗余分隔符[{sep}]"
         if rm_space:
-            for i in range(df.shape[0]):  # 去元素前后空白
-                for j in range(df.shape[1]):
-                    tem = str(df.iloc[i, j]).strip()
-                    df.iloc[i, j] = tem
+            # for i in range(df.shape[0]):  # 去元素前后空白 # 速度太慢，换用下面方法
+            #     for j in range(df.shape[1]):
+            #         tem = str(df.iloc[i, j]).strip()
+            #         df.iloc[i, j] = tem
+            inDFcol = df.columns.str.strip().tolist()
+            df.columns = inDFcol
+            for col in inDFcol:
+                df.loc[:, col] = df[col].str.strip()
         df.to_csv(new_file, sep=sep, index=0, header=None, quotechar=sep)
     except pd.errors.ParserError as e:
         print(e) if not no_log else 1
@@ -1582,11 +1594,11 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
     :param ck_col_na: 布尔值，基础检查，是否检查目标列内缺失，默认True
     :param ck_col_ban: 布尔值，基础检查，是否检查目标列内禁用，默认True
     :param row_length: 整数，基础检查，期望目标行固定长度，None表示不检查，忽视ck_row_length
-    :param row_min_len: 整数，基础检查，期望目标行长度下限，默认0
-    :param row_max_len: 整数，基础检查，期望目标行长度上限，默认正无穷
+    :param row_min_len: 整数，基础检查，期望目标行长度下限，要求ck_row_length=False，默认0
+    :param row_max_len: 整数，基础检查，期望目标行长度上限，要求ck_row_length=False，默认正无穷
     :param col_length: 整数，基础检查，期望目标列固定长度，None表示不检查，忽视ck_col_length
-    :param col_min_len: 整数，基础检查，期望目标列长度下限，默认0
-    :param col_max_len: 整数，基础检查，期望目标列长度上限，默认正无穷
+    :param col_min_len: 整数，基础检查，期望目标列长度下限，要求ck_col_length=False，默认0
+    :param col_max_len: 整数，基础检查，期望目标列长度上限，要求ck_col_length=False，默认正无穷
     :param ban_list: 字符串/字符串列表，基础检查，禁用元素，行列通用，None表示不检查，忽视ck_row_ban/ck_col_ban
     :param na_list: 字符串/字符串列表，基础检查，定义为缺失数据的字符类型列表，行列通用，默认("", "NA", "N/A", "NULL")
     :param ck_row_fix: 布尔值，是否检查行固定内容，默认True
@@ -1662,14 +1674,15 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
         if ck_row_num and row_num_exp is not None:
             in_list = get_col2list(in_file=in_file, col_no=1, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
-            err_msg = list_length(in_list=in_list, exp_len=row_num_exp, no_log=no_log)
+            err_msg = list_length(in_list=in_list, exp_len=row_num_exp, key="行", no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}行数有误：{_wrap(err_msg, self_cut=False)}")
         if ck_col_num and col_num_exp is not None:
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
-            err_msg = list_length(in_list=in_list, exp_len=col_num_exp, no_log=no_log)
+            err_msg = list_length(in_list=in_list, exp_len=col_num_exp, key="列", no_log=no_log)
             if err_msg:
+                err_msg += "，可将内容复制到xlsx表格中，检查是否为分隔符使用错误导致"
                 error_list.append(f"{add_info}输入文件{in_file_name}列数有误：{_wrap(err_msg, self_cut=False)}")
         if ck_row_num and row_num_exp is None and (row_min_num_exp or row_max_num_exp) is not None:
             if row_min_num_exp is None:
@@ -1678,7 +1691,8 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
                 row_max_num_exp = float('inf')
             in_list = get_col2list(in_file=in_file, col_no=1, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
-            err_msg = list_length(in_list=in_list, min_len=row_min_num_exp, max_len=row_max_num_exp, no_log=no_log)
+            err_msg = list_length(in_list=in_list, min_len=row_min_num_exp, max_len=row_max_num_exp,
+                                  key="行", no_log=no_log)
             if err_msg:
                 error_list.append(f"{add_info}输入文件{in_file_name}行数范围有误：{_wrap(err_msg, self_cut=False)}")
         if ck_col_num and col_num_exp is None and (col_min_num_exp or col_max_num_exp) is not None:
@@ -1688,8 +1702,10 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
                 col_max_num_exp = float('inf')
             in_list = get_row2list(in_file=in_file, row_no=1, sep=sep, rm_blank=rm_blank,
                                    fill_null=fill_null, null_list=null_list, no_log=no_log)
-            err_msg = list_length(in_list=in_list, min_len=col_min_num_exp, max_len=col_max_num_exp, no_log=no_log)
+            err_msg = list_length(in_list=in_list, min_len=col_min_num_exp, max_len=col_max_num_exp,
+                                  key="列", no_log=no_log)
             if err_msg:
+                err_msg += "，可将内容复制到xlsx表格中，检查是否为分隔符使用错误导致"
                 error_list.append(f"{add_info}输入文件{in_file_name}列数范围有误：{_wrap(err_msg, self_cut=False)}")
         if error_list:  # 行列内容检查前需确保维度正确
             return error_list
