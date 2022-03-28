@@ -1504,9 +1504,9 @@ def pre_check_file_content(in_file, out_dir, new_file=None, sep='\t', encoding="
             #     for j in range(df.shape[1]):
             #         tem = str(df.iloc[i, j]).strip()
             #         df.iloc[i, j] = tem
-            inDFcol = df.columns.str.strip().tolist()
-            df.columns = inDFcol
-            for col in inDFcol:
+            df_col = df.columns.str.strip().tolist()
+            df.columns = df_col
+            for col in df_col:
                 df.loc[:, col] = df[col].str.strip()
         df.to_csv(new_file, sep=sep, index=0, header=None, quotechar=sep)
     except pd.errors.ParserError as e:
