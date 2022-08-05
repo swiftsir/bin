@@ -53,6 +53,8 @@ Maintenance records:
 * 修复 pre_check_file_content函数表头检查报错语bug，优化缺失检查报错语
 2022.02.14
 * 优化 pre_check_file_content去除空格的检查速度
+2022.08.05
+* 优化 make_result 打包结果文件自动去除json文件
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -2271,8 +2273,8 @@ def make_result(path, out_dir, exp_item=None,
             exp_item = os.listdir(path)
         if isinstance(exp_item, str):
             exp_item = [exp_item, ]
-        if exp_item is None:
-            exp_item = os.listdir(path)
+        if out2json and out2json in exp_item:
+            exp_item.remove(out2json)
         base_name = os.path.basename(out2zip)
         out2zip = os.path.join(path, base_name)
         error_list = []
