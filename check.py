@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 """
-General check module +
+General check module[v1] +
 Check object: str num list file +
 @reference: Lihuan
 @author: WangMing
+Tips: 该模块于2023.02.09停止更新维护，请使用v2版本
 Maintenance records:
 2021.10.20
 * 修复 列表类型检查时，重复去除首个元素问题
@@ -55,6 +56,9 @@ Maintenance records:
 * 优化 pre_check_file_content去除空格的检查速度
 2022.08.05
 * 优化 make_result 打包结果文件自动去除json文件
+2023.02.09
+* 优化 make_cloud_dir 是否删除旧目录支持
+* 修复若干bug
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -873,13 +877,14 @@ def file_line_dup(in_file, add_info='', no_log=False):
             return 0
     except Exception as e:
         print(e) if not no_log else 1
+        return f"{add_info}检查重复行时出错"
 
 
 @call_log
 def line_blank(in_line, add_info='', no_log=False):
     """
     空白行检查（除空白字符外，无其他内容）
-    :param in_line: 字符串，检查对象,例如："D:\a.txt"
+    :param in_line: 字符串，检查对象，可通过get_row_line获得
     :param add_info: 字符串，附加信息
     :param no_log: 不打印调用及报错信息，默认为False
     :return: 非空白行返回0，空白行返回字符串报错信息
@@ -900,7 +905,7 @@ def line_blank(in_line, add_info='', no_log=False):
 def line_sep(in_line, sep_r=r'\t', add_info='', no_log=False):
     """
     分隔符规范检查（开头分隔符、连用分隔符、分隔符前后空白、结尾空白）
-    :param in_line: 字符串，检查对象,例如："D:\a.txt"
+    :param in_line: 字符串，检查对象，可通过get_row_line获得
     :param sep_r: 字符串，纯文本读入的分隔符，含有与正则有关的字符应在字符串前加r,或将字符使用'\'转义,默认r'\t'
     :param add_info: 字符串，附加信息
     :param no_log: 不打印调用及报错信息，默认为False
@@ -1138,7 +1143,7 @@ def list_format(in_list, re_obj=None, re_ban_body=None, ck_head=True, re_ban_hea
     :param ck_head: 布尔值，是否检查字符串首个字符，默认True
     :param re_ban_head: re.compile对象，错误的开头字符的正则格式编译，默认re.compile(r"^[^A-Za-z0-9]")
     :param ck_tail: 布尔值，是否检查字符串末尾字符，默认False
-    :param re_ban_tail: re.compile对象，错误的开头字符的正则格式编译，默认re.compile(r"[^A-Za-z0-9]$")
+    :param re_ban_tail: re.compile对象，错误的结尾字符的正则格式编译，默认re.compile(r"[^A-Za-z0-9]$")
     :param rm_first: 布尔值，默认False,是否去掉首个元素，当文件有标题行时选True
     :param key: 字符串，关键字
     :param add_info: 字符串，附加信息
@@ -1335,11 +1340,11 @@ def file_com_row_col_num(in_file, sep='\t', row_greater: bool = None,
 
         else:
             if contain_equal:
-                if row_number < col_number:
+                if row_number > col_number:
                     return f"{add_info}行数>列数，要求行数<=列数"
                 else:
                     return 0
-            elif row_number <= col_number:
+            elif row_number >= col_number:
                 return f"{add_info}行数>=列数，要求行数<列数"
             else:
                 return 0
@@ -1373,7 +1378,7 @@ def check_file_dim_fix(in_file, sep='\t', row_num_exp: int = None,
                 error_list.append(f'{add_info}{in_file_name}行数错误，应为{row_num_exp}行')
         if col_num_exp is not None:
             if col_number != col_num_exp:
-                error_list.append(f'{add_info}{in_file_name}行数错误，应为{row_num_exp}列')
+                error_list.append(f'{add_info}{in_file_name}行数错误，应为{col_num_exp}列')
         if len(error_list) == 0:
             return 0
         else:
@@ -1387,8 +1392,8 @@ def check_file_dim_fix(in_file, sep='\t', row_num_exp: int = None,
 def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_list=None,
                         ck_row_fix=True, ck_col_fix=True, set_range=False,
                         range_min=1, range_max: int = None,
-                        row_fix_no: int = 1, row_fix_content: list = (),
-                        col_fix_no: int = 1, col_fix_content: list = (), add_info='', no_log=False):
+                        row_fix_no: int = 1, row_fix_content: list = None,
+                        col_fix_no: int = 1, col_fix_content: list = None, add_info='', no_log=False):
     """
     数据固定行/列标题快捷检查，完整版使用 check_file_content，较完整版多出部分行/列内容固定的检查
     :param in_file: 字符串，检查对象,例如："D:\a.txt"
@@ -1444,11 +1449,11 @@ def check_file_line_fix(in_file, sep="\t", rm_blank=True, fill_null=False, null_
             if in_list[min_index:max_index] != list(col_fix_content):
                 allowed_title = "\t".join(list(map(lambda x: str(x), col_fix_content)))
                 if set_range:
-                    msg = f"{add_info}{in_file_name}第{row_fix_no}列" \
+                    msg = f"{add_info}{in_file_name}第{col_fix_no}列" \
                           f"第{range_min}至{max_index + 1}个元素必须为：{_wrap(allowed_title)}"
                     error_list.append(msg)
                 else:
-                    error_list.append(f"{add_info}{in_file_name}第{row_fix_no}列必须为：{_wrap(allowed_title)}")
+                    error_list.append(f"{add_info}{in_file_name}第{col_fix_no}列必须为：{_wrap(allowed_title)}")
         if len(error_list) == 0:
             return 0
         else:
@@ -1802,9 +1807,9 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
         row_flag = []
         if ck_row_type:
             if ck_row_type_list == -1:
-                ck_row_type_list = range(2, row_number + 1)
+                ck_row_type_list = list(range(2, row_number + 1))
             elif ck_row_type_list is None or ck_row_type_list == 0:
-                ck_row_type_list = range(1, row_number + 1)
+                ck_row_type_list = list(range(1, row_number + 1))
             if isinstance(ck_row_type_list, int):
                 ck_row_type_list = [ck_row_type_list, ]
             for row in ck_row_type_list:
@@ -1827,9 +1832,9 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
         col_flag = []
         if ck_col_type:
             if ck_col_type_list == -1:
-                ck_col_type_list = range(2, col_number + 1)
+                ck_col_type_list = list(range(2, col_number + 1))
             elif ck_col_type_list is None or ck_col_type_list == 0:
-                ck_col_type_list = range(1, col_number + 1)
+                ck_col_type_list = list(range(1, col_number + 1))
             if isinstance(ck_col_type_list, int):
                 ck_col_type_list = [ck_col_type_list, ]
             for col in ck_col_type_list:
@@ -1851,12 +1856,12 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
                             error_list.append(f"{add_info}输入文件{in_file_name}第{col}列{_wrap(err_msg, self_cut=False)}")
         if row_flag and ck_row_standard:
             if ck_standard_list == -1:
-                ck_standard_list = range(2, row_number + 1)
+                ck_standard_list = list(range(2, row_number + 1))
             elif ck_standard_list is None:
-                ck_standard_list = range(1, row_number + 1)
+                ck_standard_list = list(range(1, row_number + 1))
             if isinstance(ck_standard_list, int):
                 ck_standard_list = [ck_standard_list, ]
-            if ck_standard_list in ck_row_type_list:
+            if set(ck_standard_list).issubset(set(ck_row_type_list)):
                 for row in ck_standard_list:
                     in_list = get_row2list(in_file=in_file, row_no=row, sep=sep, rm_blank=rm_blank,
                                            fill_null=fill_null, null_list=null_list, no_log=True)
@@ -1866,12 +1871,12 @@ def check_file_content(in_file, out_dir, new_file=None, pre_check=True, rm_space
                                           f"标准差为0，不能按行进行标准化，请删除该行或尝试按列标准化")
         if col_flag and ck_col_standard:
             if ck_standard_list == -1:
-                ck_standard_list = range(2, col_number + 1)
+                ck_standard_list = list(range(2, col_number + 1))
             elif ck_standard_list is None:
-                ck_standard_list = range(1, col_number + 1)
+                ck_standard_list = list(range(1, col_number + 1))
             if isinstance(ck_standard_list, int):
                 ck_standard_list = [ck_standard_list, ]
-            if ck_standard_list in ck_col_type_list:
+            if set(ck_standard_list).issubset(set(ck_col_type_list)):
                 for col in ck_standard_list:
                     in_list = get_col2list(in_file=in_file, col_no=col, sep=sep, rm_blank=rm_blank,
                                            fill_null=fill_null, null_list=null_list, no_log=True)
@@ -2014,7 +2019,7 @@ def check_com_line(in_file1, in_file2,
             msg = com_list(list1=in_list1, list2=in_list2, order_strict=order_strict, rm_first=rm_first,
                            ck_1_in_2=ck_1_in_2, key=key, no_log=no_log)
             if msg != 0:
-                return f'{add_info}{in_file_name1}第{file1_no}{dim1}与{in_file_name2}第{file2_no}{dim2}{msg}'
+                return [f'{add_info}{in_file_name1}第{file1_no}{dim1}与{in_file_name2}第{file2_no}{dim2}{msg}', ]
             else:
                 return 0
     except Exception as e:
@@ -2158,12 +2163,13 @@ def copy_file(in_file, path, new_file=None, add_info='', no_log=False):
 
 
 @call_log
-def make_cloud_dir(path, more=True, more_dir: list = None, add_info='', no_log=False):
+def make_cloud_dir(path, more=True, more_dir: list = None, del_old=True, add_info='', no_log=False):
     """
     创建云平台 v2.0 结果目录树
     :param path: 字符串，创建结果目录树的路径（tmp父级目录），推荐绝对路径
     :param more: 布尔值，是否需要额外创建分析分析文件夹,默认True
     :param more_dir: 字符串/字符串列表，创建额外分析文件夹的名称，默认创建 analysis 文件夹
+    :param del_old: 布尔值，是否删除已存在目录及其中文件（夹）并重建目录，默认True
     :param add_info: 字符串，附加信息
     :param no_log: 不打印调用及报错信息，默认为False
     :return: 创建成功无返回，创建失败返回字符串报错信息
@@ -2172,19 +2178,19 @@ def make_cloud_dir(path, more=True, more_dir: list = None, add_info='', no_log=F
         path = _path_pre_proc(path)
         abs_path = os.path.abspath(path)
         tmp_dir = os.path.join(abs_path, "tmp")
-        err_msg = make_dir(tmp_dir, no_log=no_log)
+        err_msg = make_dir(tmp_dir, del_old=del_old, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         res_dir = os.path.join(tmp_dir, "cloud_result")
-        err_msg = make_dir(res_dir, no_log=no_log)
+        err_msg = make_dir(res_dir, del_old=del_old, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         err_dir = os.path.join(tmp_dir, "cloud_error")
-        err_msg = make_dir(err_dir, no_log=no_log)
+        err_msg = make_dir(err_dir, del_old=del_old, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         svg_dir = os.path.join(tmp_dir, "cloud_svg")
-        err_msg = make_dir(svg_dir, no_log=no_log)
+        err_msg = make_dir(svg_dir, del_old=del_old, no_log=no_log)
         if err_msg:
             return f'{add_info}{err_msg}'
         if more:
@@ -2194,7 +2200,7 @@ def make_cloud_dir(path, more=True, more_dir: list = None, add_info='', no_log=F
                 more_dir = [more_dir, ]
             for i_dir in more_dir:
                 ana_dir = os.path.join(tmp_dir, i_dir)
-                err_msg = make_dir(ana_dir, no_log=no_log)
+                err_msg = make_dir(ana_dir, del_old=del_old, no_log=no_log)
                 if err_msg:
                     return f'{add_info}{err_msg}'
     except Exception as e:
