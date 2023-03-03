@@ -440,7 +440,6 @@ class Str(object):
             if allow_space:  # 如果允许空格，那么将所有空格替换为"b",规避正则检查
                 self.in_str = re.sub(' ', 'b', self.in_str)
             if ck_length:
-                print(elen)
                 err_msg = self.length(elen=elen, max_len=max_len, min_len=min_len)
                 if err_msg:
                     error_list.append(f"{self.add_info}{err_msg}")
@@ -1597,12 +1596,13 @@ class File(object):
         :param rm_blank: 布尔值，是否移除该列元素前后空白，默认True
         :param fill_null: 布尔值，是否将缺失数据统一替换为NA，默认True
         :param null_list: 字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
-        :param key: 字符串，关键字信息，默认'样本'
+        :param key: 字符串，关键字信息，中文默认"样本"，英文默认" sample(s) "
         :return: 符合期望返回0，不符合返回报错信息列表
         print(__name__, self._c, _name()) if not self.no_log else 1
         """
         print(__name__, self._c, _name()) if not self.no_log else 1
         try:
+            key = " sample(s) " if self.lang == "EN" and key == "样本" else key
             row_options = [1, "1", "row", "行"]
             col_options = [2, "2", "col", "column", "列"]
             dim_options = row_options + col_options
@@ -1629,6 +1629,7 @@ class File(object):
             else:
                 in_list2 = _col2list(file=in_file2, sep=self.sep, col_no=file2_no, rm_blank=rm_blank,
                                      fill_null=fill_null, null_list=null_list)
+            in_list2 = in_list2[1:] if rm_first else in_list2
             msg = List(in_list=in_list1, key=key, rm_first=rm_first, no_log=self.no_log, lang=self.lang).compare(
                 list2=in_list2, order_strict=order_strict, ck_1_in_2=ck_1_in_2)
             if msg != 0:
@@ -1696,7 +1697,7 @@ class List(object):
         列表类型数据检查
         check tools for List
         :param in_list: 列表，检查对象
-        :param key: 字符串，列表元素展示通名，关键字
+        :param key: 字符串，列表元素展示通名，关键字，中文默认"元素"，英文默认" element(s) "
         :param rm_first: 布尔值，高优先级，是否去掉首个元素，当文件有标题行时可选True，默认False
         :param add_info: 字符串，附加信息
         :param no_log: 不打印调用及报错信息，默认为False
@@ -1705,7 +1706,7 @@ class List(object):
         fix_list = [in_list, ] if isinstance(in_list, str) else list(in_list)
         fix_list = fix_list[1:] if rm_first else fix_list
         self.fix_list = fix_list
-        self.key = key
+        self.key = " element(s) " if lang == "EN" and key == "元素" else key
         self.add_info = add_info
         self.no_log = no_log
         self.lang = lang
