@@ -590,7 +590,7 @@ class File(object):
         self._e = self.lang_dic[self.lang][self._c]  # 报错字典初定位
         self.__name = os.path.basename(in_file)
         if not os.path.isfile(in_file):
-            print("Warning: Input Is Not A File! [%s]".format(in_file))
+            print("Warning: Input Is Not A File! [{}]".format(in_file))
 
     def __repr__(self):
         return 'File(in：{0.in_file!r}, sep：{0.sep!r}, add：{0.add_info!r}, ' \
@@ -1347,15 +1347,15 @@ class File(object):
                     error_list.append(f"{_wrap(err_msg, self_cut=False)}")
             if error_list:  # 维度检查前需确保分隔符正确
                 return error_list
+            col1 = self.get_col2list(col_no=1, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+            row1 = self.get_row2list(row_no=1, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
             if ck_row_num and row_num_exp is not None:
-                in_list = self.get_col2list(col_no=1, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                err_msg = List(in_list=in_list, key=self._e['行']).length(exp_len=row_num_exp)
+                err_msg = List(in_list=col1, key=self._e['行'], lang=self.lang).length(exp_len=row_num_exp)
                 if err_msg:
                     error_list.append(
                         f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行数有误']}{_wrap(err_msg, self_cut=False)}")
             if ck_col_num and col_num_exp is not None:
-                in_list = self.get_row2list(row_no=1, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                err_msg = List(in_list=in_list, key=self._e['列']).length(exp_len=col_num_exp)
+                err_msg = List(in_list=row1, key=self._e['列'], lang=self.lang).length(exp_len=col_num_exp)
                 if err_msg:
                     err_msg += f"{self._e['表格检查']}"
                     error_list.append(
@@ -1365,8 +1365,7 @@ class File(object):
                     row_min_num_exp = 1
                 if row_max_num_exp is None:
                     row_max_num_exp = float('inf')
-                in_list = self.get_col2list(col_no=1, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                err_msg = List(in_list=in_list, key=self._e['行'], no_log=self.no_log, lang=self.lang).length(
+                err_msg = List(in_list=col1, key=self._e['行'], no_log=self.no_log, lang=self.lang).length(
                     min_len=row_min_num_exp, max_len=row_max_num_exp)
                 if err_msg:
                     error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行数范围有误']}"
@@ -1376,8 +1375,7 @@ class File(object):
                     col_min_num_exp = 1
                 if col_max_num_exp is None:
                     col_max_num_exp = float('inf')
-                in_list = self.get_row2list(row_no=1, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                err_msg = List(in_list=in_list, key=self._e['列'], no_log=self.no_log, lang=self.lang).length(
+                err_msg = List(in_list=row1, key=self._e['列'], no_log=self.no_log, lang=self.lang).length(
                     min_len=col_min_num_exp, max_len=col_max_num_exp)
                 if err_msg:
                     err_msg += f"{self._e['表格检查']}"
@@ -1394,29 +1392,31 @@ class File(object):
                     ck_row_list = [ck_row_list, ]
                 for row in ck_row_list:
                     in_list = self.get_row2list(row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                    ob_list = List(in_list=in_list, no_log=True, lang=self.lang)
                     if ck_row_length and row_length is not None:
-                        err_msg = List(in_list=in_list, no_log=True).length(exp_len=row_length)
+                        err_msg = ob_list.length(exp_len=row_length)
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
                                               f"{_wrap(err_msg, self_cut=False)}")
                     elif not ck_row_length and ck_row_length_range:
-                        err_msg = List(in_list=in_list, no_log=True).range(min_len=row_min_len, max_len=row_max_len)
+                        err_msg = ob_list.range(
+                            min_len=row_min_len, max_len=row_max_len)
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
                                               f"{_wrap(err_msg, self_cut=False)}")
                     if ck_row_dup:
-                        err_msg = List(in_list=in_list, no_log=True).dup()
+                        err_msg = ob_list.dup()
                         if err_msg:
                             error_list.append(
                                 f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}{self._e['有重复']}"
                                 f"{_wrap(err_msg, self_cut=False)}{self._e['要无重']}")
                     if ck_row_ban and ban_list is not None:
-                        err_msg = List(in_list=in_list, no_log=True).ban(ban_list=ban_list)
+                        err_msg = ob_list.ban(ban_list=ban_list)
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
                                               f"{self._e['有非法']}{_wrap(err_msg, self_cut=False)}")
                     if ck_row_na:
-                        err_msg = List(in_list=in_list, no_log=True).na(na_list=na_list)
+                        err_msg = ob_list.na(na_list=na_list)
                         if err_msg:
                             err_msg += f"{self._e['表格检查']}"
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
@@ -1430,28 +1430,30 @@ class File(object):
                     ck_col_list = [ck_col_list, ]
                 for col in ck_col_list:
                     in_list = self.get_col2list(col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                    ob_list = List(in_list=in_list, no_log=True, lang=self.lang)
                     if ck_col_length and col_length is not None:
-                        err_msg = List(in_list=in_list, no_log=True).length(exp_len=col_length)
+                        err_msg = ob_list.length(exp_len=col_length)
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
                                               f"{_wrap(err_msg, self_cut=False)}")
                     elif not ck_col_length and ck_col_length_range:
-                        err_msg = List(in_list=in_list, no_log=True).range(min_len=col_min_len, max_len=col_max_len)
+                        err_msg = ob_list.range(
+                            min_len=col_min_len, max_len=col_max_len)
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
                                               f"{_wrap(err_msg, self_cut=False)}")
                     if ck_col_dup:
-                        err_msg = List(in_list=in_list, no_log=True).dup()
+                        err_msg = ob_list.dup()
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
                                               f"{self._e['有重复']}{_wrap(err_msg, self_cut=False)}{self._e['要无重']}")
                     if ck_col_ban and ban_list is not None:
-                        err_msg = List(in_list=in_list, no_log=True).ban(ban_list=ban_list)
+                        err_msg = ob_list.ban(ban_list=ban_list)
                         if err_msg:
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
                                               f"{self._e['有非法']}{_wrap(err_msg, self_cut=False)}")
                     if ck_col_na:
-                        err_msg = List(in_list=in_list, no_log=True).na(na_list=na_list)
+                        err_msg = ob_list.na(na_list=na_list)
                         if err_msg:
                             err_msg += f"{self._e['表格检查']}"
                             error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
@@ -1492,22 +1494,23 @@ class File(object):
                     ck_row_type_list = [ck_row_type_list, ]
                 for row in ck_row_type_list:
                     in_list = self.get_row2list(row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                    msg = List(in_list=in_list, rm_first=rm_first, no_log=True).type(exp_type=exp_type)
+                    msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).type(exp_type=exp_type)
                     if isinstance(msg, str):
                         error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
                                           f"{_wrap(msg, self_cut=False)}")
                     else:
+                        ob_list = List(in_list=msg, no_log=True, lang=self.lang)
                         if exp_type in ['float', 'int']:
                             row_flag.append(1)
                         if ck_row_num_range:
-                            err_msg = List(in_list=msg, no_log=True).num_range(min_num=row_min_num, max_num=row_max_num)
+                            err_msg = ob_list.num_range(min_num=row_min_num, max_num=row_max_num)
                             if err_msg:
-                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
+                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row} "
                                                   f"{_wrap(err_msg, self_cut=False)}")
                         if ck_row_num_ban and ban_num is not None:
-                            err_msg = List(in_list=msg, no_log=True).num_ban(ban_num=ban_num)
+                            err_msg = ob_list.num_ban(ban_num=ban_num)
                             if err_msg:
-                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
+                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row} "
                                                   f"{_wrap(err_msg, self_cut=False)}")
             col_flag = []
             if ck_col_type:
@@ -1519,22 +1522,23 @@ class File(object):
                     ck_col_type_list = [ck_col_type_list, ]
                 for col in ck_col_type_list:
                     in_list = self.get_col2list(col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                    msg = List(in_list=in_list, rm_first=rm_first, no_log=True).type(exp_type=exp_type)
+                    msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).type(exp_type=exp_type)
                     if isinstance(msg, str):
                         error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
                                           f"{_wrap(msg, self_cut=False)}")
                     else:
+                        ob_list = List(in_list=msg, no_log=True, lang=self.lang)
                         if exp_type in ['float', 'int']:
                             col_flag.append(1)
                         if ck_col_num_range:
-                            err_msg = List(in_list=msg, no_log=True).num_range(min_num=col_min_num, max_num=col_max_num)
+                            err_msg = ob_list.num_range(min_num=col_min_num, max_num=col_max_num)
                             if err_msg:
-                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
+                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col} "
                                                   f"{_wrap(err_msg, self_cut=False)}")
                         if ck_col_num_ban and ban_num is not None:
-                            err_msg = List(in_list=msg, no_log=True).num_ban(ban_num=ban_num)
+                            err_msg = ob_list.num_ban(ban_num=ban_num)
                             if err_msg:
-                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
+                                error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col} "
                                                   f"{_wrap(err_msg, self_cut=False)}")
             if row_flag and ck_row_standard:
                 if ck_standard_list == -1:
@@ -1547,7 +1551,7 @@ class File(object):
                     for row in ck_standard_list:
                         in_list = self.get_row2list(
                             row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                        msg = List(in_list=in_list, rm_first=rm_first, no_log=True).factor(exp_num=1)
+                        msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).factor(exp_num=1)
                         if not msg:
                             error_list.append(
                                 f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}{self._e['行标准化要求']}")
@@ -1563,7 +1567,7 @@ class File(object):
                         in_list = self.get_col2list(
                             col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
                         print(in_list)
-                        msg = List(in_list=in_list, rm_first=rm_first, no_log=True).factor(exp_num=1)
+                        msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).factor(exp_num=1)
                         if not msg:
                             error_list.append(
                                 f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}{self._e['列标准化要求']}")
