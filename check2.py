@@ -1879,7 +1879,7 @@ class List(object):
             self.factor_buff = list(set(self.fix_list))
             msg = self.length(exp_len=exp_num, min_len=min_num, max_len=max_num)
             if msg:
-                return f"{self.add_info}{msg}"
+                return f"{msg}"
             else:
                 return 0
         except Exception as e:

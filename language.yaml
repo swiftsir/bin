@@ -28,7 +28,7 @@ EN:
     "ban": "An error occurred while numeric disable checking"
     "check": "An error occurred while numeric checking"
   File:
-    "输入": "input file:"
+    "输入": "input file: "
     "不存在": " does not exist. Please check it"
     "exit": "An error occurred while checking for file existence"
     "不支持后缀": "'s suffix is not supported, "
@@ -133,7 +133,7 @@ EN:
     "factor": "An error occurred while checking the number of categories"
     "数值": "numeric"
     "整数": "integer"
-    "非": "non-"
+    "非": " non-"
     "类值": " was/were checked: "
     "type": "An error occurred while checking type"
     "负无穷": "negative infinity"
