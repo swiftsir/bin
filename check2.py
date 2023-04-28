@@ -8,6 +8,10 @@ Check object: str num list file +
 Maintenance records:
 2023.02.09
 * 新版本检查模块上线
+2023.04.24
+* 增加 根据行/列名提取行/列相关功能
+* 增加 行列固定内容检查是否严格顺序、是否允许冗余选项
+* 优化 参数类型限制IDE智能提示
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -26,7 +30,15 @@ import yaml
 import inspect
 import logging
 import platform
+from typing import Union
+from typing import List as Li
 
+_list = Union[int, str, list]
+_num = Union[int, float]
+_str_list = Union[str, Li[str]]
+_int_list = Union[int, Li[int]]
+_flo_list = Union[float, Li[float]]
+_num_list = Union[_num, Li[_num]]
 YAML = "language.yaml"
 LANG = "CN"  # default language, CN/EN
 NONE_LIST = ["", "NA", "N/A", "NULL"]
@@ -537,7 +549,7 @@ class Num(object):
             print(e) if not self.no_log else 1
             return f"{self.add_info}{self._e['ban']}"
 
-    def check(self, ck_range=True, ck_ban=True, min_num=float('-inf'), max_num=float('inf'), ban_num: list = None):
+    def check(self, ck_range=True, ck_ban=True, min_num=float('-inf'), max_num=float('inf'), ban_num: _num_list = None):
         """
         数值检查
         :param ck_range: 布尔值，是否检查大小范围，默认True
@@ -977,18 +989,26 @@ class File(object):
             if null_list is None:
                 null_list = list(NONE_LIST)
             return _row2list(self.in_file, self.sep, row_no, rm_blank, fill_null, null_list)
-            # line_list = []
-            # for line, line_no in _read_line(self.in_file):
-            #     if line_no < row_no:
-            #         continue
-            #     elif line_no > row_no:
-            #         break
-            #     else:
-            #         if rm_blank:
-            #             line_list = list(map(lambda x: x.strip(), line.split(self.sep)))
-            #         if fill_null:
-            #             line_list = ["NA" if x in null_list else x for x in line_list]
-            #         return line_list
+        except Exception as e:
+            print(e) if not self.no_log else 1
+
+    def get_namerow2list(self, name="Index", rm_blank=True, fill_null=False, null_list: list = None):
+        """
+        根据行名获取文件指定一行的元素列表，并默认移除元素前后空白(重复行名返回第一行)
+        :param name: 字符串，指定读取行行名，默认"Index"
+        :param rm_blank: 布尔值，是否移除该行元素前后空白，默认True
+        :param fill_null: 布尔值，是否将缺失数据统一替换为NA，默认False
+        :param null_list: 字符串/字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
+        :return: 正常返回指定行元素列表，错误无返回
+        """
+        try:
+            if isinstance(null_list, str):
+                null_list = [null_list, ]
+            if null_list is None:
+                null_list = list(NONE_LIST)
+            row_name = _col2list(self.in_file, self.sep, 1, rm_blank, fill_null, null_list)
+            first_tar = row_name.index(str(name))
+            return _row2list(self.in_file, self.sep, first_tar + 1, rm_blank, fill_null, null_list)
         except Exception as e:
             print(e) if not self.no_log else 1
 
@@ -1007,16 +1027,26 @@ class File(object):
             if null_list is None:
                 null_list = list(NONE_LIST)
             return _col2list(self.in_file, self.sep, col_no, rm_blank, fill_null, null_list)
-            # col_elements = []
-            # for row, no in _read_line(self):
-            #     row_list = row.split(self.sep)
-            #     if rm_blank:
-            #         row_list = list(map(lambda x: x.strip(), row_list))
-            #     if fill_null:
-            #         row_list = ["NA" if x in null_list else x for x in row_list]
-            #     col_element = row_list[col_no - 1]
-            #     col_elements.append(col_element)
-            # return col_elements
+        except Exception as e:
+            print(e) if not self.no_log else 1
+
+    def get_namecol2list(self, name="Index", rm_blank=True, fill_null=True, null_list: list = None):
+        """
+        根据列名获取文件指定一列的元素列表，并默认移除元素前后空白(重复列名返回第一列)
+        :param name: 字符串，指定读取行行名，默认"Index"
+        :param rm_blank: 布尔值，是否移除该列元素前后空白，默认True
+        :param fill_null: 布尔值，是否将缺失数据统一替换为NA，默认True
+        :param null_list: 字符串/字符串列表，指定原数据表示缺失数据的符号，默认["", "NA", "N/A", "NULL"]
+        :return: 正常返回指定列元素列表，错误无返回
+        """
+        try:
+            if isinstance(null_list, str):
+                null_list = [null_list, ]
+            if null_list is None:
+                null_list = list(NONE_LIST)
+            col_name = _row2list(self.in_file, self.sep, 1, rm_blank, fill_null, null_list)
+            first_tar = col_name.index(str(name))
+            return _col2list(self.in_file, self.sep, first_tar + 1, rm_blank, fill_null, null_list)
         except Exception as e:
             print(e) if not self.no_log else 1
 
@@ -1223,21 +1253,21 @@ class File(object):
                       row_num_exp: int = None, col_num_exp: int = None,
                       row_min_num_exp: int = None, col_min_num_exp: int = None,
                       row_max_num_exp: int = None, col_max_num_exp: int = None,
-                      ck_row_base=True, ck_col_base=True, ck_row_list: list = 1, ck_col_list: list = 1,
+                      ck_row_base=True, ck_col_base=True, ck_row_list: _list = 1, ck_col_list: _list = 1,
                       ck_row_length=True, ck_row_length_range=True, ck_row_dup=True, ck_row_na=True, ck_row_ban=True,
                       ck_col_length=True, ck_col_length_range=True, ck_col_dup=True, ck_col_na=True, ck_col_ban=True,
                       row_length: int = None, row_min_len=0, row_max_len: int = float('inf'),
                       col_length: int = None, col_min_len=0, col_max_len: int = float('inf'),
                       ban_list: list = None, na_list: list = None,
                       ck_row_fix=True, ck_col_fix=True, row_fix_no: int = 1, col_fix_no: int = 1,
-                      row_fix_content: list = None, col_fix_content: list = None,
+                      row_fix_content: list = None, col_fix_content: list = None, fix_order=True, fix_extra=False,
                       ck_row_type=False, ck_col_type=False,
-                      ck_row_type_list: list = None, ck_col_type_list: list = None, exp_type='float', rm_first=False,
+                      ck_row_type_list: _list = None, ck_col_type_list: _list = None, exp_type='float', rm_first=False,
                       ck_row_num_range=False, ck_col_num_range=False,
                       row_min_num=float('-inf'), row_max_num=float('inf'),
                       col_min_num=float('-inf'), col_max_num=float('inf'),
                       ck_row_num_ban=True, ck_col_num_ban=True, ban_num: list = None,
-                      ck_row_standard=False, ck_col_standard=False, ck_standard_list: list = None,
+                      ck_row_standard=False, ck_col_standard=False, ck_standard_list: _list = None,
                       com_col_row_mum=True, row_greater: bool = None, contain_equal=True):
         """
         文件详细内容检查，注意new_file与in_file为同一文件时，处理后将会替换旧文件，后续检查及程序应使用new_file替代in_file传参
@@ -1288,6 +1318,8 @@ class File(object):
         :param col_fix_no: 正整数，要检查固定内容的列号，默认1，即检查首列固定标题
         :param row_fix_content: 字符串/字符串列表，期望的检查行固定内容，None表示不检查，忽视ck_row_fix
         :param col_fix_content: 字符串/字符串列表，期望的检查列固定内容，None表示不检查，忽视ck_row_fix
+        :param fix_order: 布尔值，是否以严格顺序检查固定内容，默认True
+        :param fix_extra: 布尔值，是否允许包含固定内容外的冗余内容，默认False
         :param ck_row_type: 布尔值，是否检查行元素类型，默认False
         :param ck_col_type: 布尔值，是否检查列元素类型，默认False
         :param ck_row_type_list: 正整数/正整数列表，行元素类型检查行号+，None或0表示全部行,-1表示去掉首行，默认为None
@@ -1391,7 +1423,12 @@ class File(object):
                 if isinstance(ck_row_list, int):
                     ck_row_list = [ck_row_list, ]
                 for row in ck_row_list:
-                    in_list = self.get_row2list(row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                    if isinstance(row, int):
+                        in_list = self.get_row2list(row_no=row, rm_blank=rm_blank, fill_null=fill_null,
+                                                    null_list=null_list)
+                    else:
+                        in_list = self.get_namerow2list(name=row, rm_blank=rm_blank, fill_null=fill_null,
+                                                        null_list=null_list)
                     ob_list = List(in_list=in_list, no_log=True, lang=self.lang)
                     if ck_row_length and row_length is not None:
                         err_msg = ob_list.length(exp_len=row_length)
@@ -1429,7 +1466,12 @@ class File(object):
                 if isinstance(ck_col_list, int):
                     ck_col_list = [ck_col_list, ]
                 for col in ck_col_list:
-                    in_list = self.get_col2list(col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                    if isinstance(col, int):
+                        in_list = self.get_col2list(col_no=col, rm_blank=rm_blank, fill_null=fill_null,
+                                                    null_list=null_list)
+                    else:
+                        in_list = self.get_namecol2list(name=col, rm_blank=rm_blank, fill_null=fill_null,
+                                                        null_list=null_list)
                     ob_list = List(in_list=in_list, no_log=True, lang=self.lang)
                     if ck_col_length and col_length is not None:
                         err_msg = ob_list.length(exp_len=col_length)
@@ -1463,7 +1505,16 @@ class File(object):
                     row_no=row_fix_no, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
                 if isinstance(row_fix_content, str):
                     row_fix_content = [row_fix_content, ]
-                if in_list != list(row_fix_content):
+                err_flag = False
+                if not fix_extra:
+                    if (fix_order and in_list != list(row_fix_content)) or \
+                            (not fix_order and set(in_list) != set(list(row_fix_content))):
+                        err_flag = True
+                else:
+                    if List(row_fix_content, lang=self.lang).compare(
+                            list2=in_list, order_strict=fix_order, ck_1_in_2=fix_extra):
+                        err_flag = True
+                if err_flag:
                     in_title = ",".join(map(lambda x: str(x), in_list))
                     allowed_title = ",".join(map(lambda x: str(x), row_fix_content))
                     in_title = in_title[:45] + " ... " if len(in_title) > 50 else in_title
@@ -1476,7 +1527,16 @@ class File(object):
                     col_no=col_fix_no, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
                 if isinstance(col_fix_content, str):
                     col_fix_content = [col_fix_content, ]
-                if in_list != list(col_fix_content):
+                err_flag = False
+                if not fix_extra:
+                    if (fix_order and in_list != list(col_fix_content)) or \
+                            (not fix_order and set(in_list) != set(list(col_fix_content))):
+                        err_flag = True
+                else:
+                    if List(col_fix_content, lang=self.lang).compare(
+                            list2=in_list, order_strict=fix_order, ck_1_in_2=fix_extra):
+                        err_flag = True
+                if err_flag:
                     in_title = ",".join(map(lambda x: str(x), in_list))
                     allowed_title = ",".join(map(lambda x: str(x), col_fix_content))
                     in_title = in_title[:45] + " ... " if len(in_title) > 50 else in_title
@@ -1493,7 +1553,12 @@ class File(object):
                 if isinstance(ck_row_type_list, int):
                     ck_row_type_list = [ck_row_type_list, ]
                 for row in ck_row_type_list:
-                    in_list = self.get_row2list(row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                    if isinstance(row, int):
+                        in_list = self.get_row2list(row_no=row, rm_blank=rm_blank, fill_null=fill_null,
+                                                    null_list=null_list)
+                    else:
+                        in_list = self.get_namerow2list(name=row, rm_blank=rm_blank, fill_null=fill_null,
+                                                        null_list=null_list)
                     msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).type(exp_type=exp_type)
                     if isinstance(msg, str):
                         error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['行号']}{row}"
@@ -1521,7 +1586,12 @@ class File(object):
                 if isinstance(ck_col_type_list, int):
                     ck_col_type_list = [ck_col_type_list, ]
                 for col in ck_col_type_list:
-                    in_list = self.get_col2list(col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                    if isinstance(col, int):
+                        in_list = self.get_col2list(col_no=col, rm_blank=rm_blank, fill_null=fill_null,
+                                                    null_list=null_list)
+                    else:
+                        in_list = self.get_namecol2list(name=col, rm_blank=rm_blank, fill_null=fill_null,
+                                                        null_list=null_list)
                     msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).type(exp_type=exp_type)
                     if isinstance(msg, str):
                         error_list.append(f"{self.add_info}{self._e['输入']}{self.__name}{self._e['列号']}{col}"
@@ -1549,8 +1619,12 @@ class File(object):
                     ck_standard_list = [ck_standard_list, ]
                 if set(ck_standard_list).issubset(set(ck_row_type_list)):
                     for row in ck_standard_list:
-                        in_list = self.get_row2list(
-                            row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                        if isinstance(row, int):
+                            in_list = self.get_row2list(
+                                row_no=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                        else:
+                            in_list = self.get_namerow2list(
+                                name=row, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
                         msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).factor(exp_num=1)
                         if not msg:
                             error_list.append(
@@ -1564,9 +1638,12 @@ class File(object):
                     ck_standard_list = [ck_standard_list, ]
                 if set(ck_standard_list).issubset(set(ck_col_type_list)):
                     for col in ck_standard_list:
-                        in_list = self.get_col2list(
-                            col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
-                        print(in_list)
+                        if isinstance(col, int):
+                            in_list = self.get_col2list(
+                                col_no=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
+                        else:
+                            in_list = self.get_namecol2list(
+                                name=col, rm_blank=rm_blank, fill_null=fill_null, null_list=null_list)
                         msg = List(in_list=in_list, rm_first=rm_first, no_log=True, lang=self.lang).factor(exp_num=1)
                         if not msg:
                             error_list.append(
@@ -2182,7 +2259,7 @@ class Tool(object):
             print(e) if not self.no_log else 1
             return [f"{self.add_info}{self._e['check_dir_item']}", ]
 
-    def make_result(self, path, out_dir, exp_item=None, out2zip='result.zip', out2json: str = None):
+    def make_result(self, path, out_dir, exp_item: _str_list = None, out2zip='result.zip', out2json: str = None):
         """
         创建结果文件压缩包并将压缩包(及json)文件移至云平台2.0要求存储目录
         :param path: 字符串，数据分析结果临时储存目录，推荐绝对路径
@@ -2249,7 +2326,7 @@ class Tool(object):
             print(e) if not self.no_log else 1
             return [f"{self.add_info}{self._e['make_result']}", ]
 
-    def write_log(self, log_list: list, log_file: str, add_log=True):
+    def write_log(self, log_list: _str_list, log_file: str, add_log=True):
         """
         日志/报错等信息列表记录到文件
         :param log_list: 字符串/字符串列表，待记录对象

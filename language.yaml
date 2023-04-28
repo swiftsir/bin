@@ -95,7 +95,7 @@ EN:
     "首行要求": "'s first line (header line) is partially empty and the header cannot be recognized. Check that there is only one separator between the two column names"
     "行数有误": " has the wrong number of lines:"
     "表格检查": ", you can copy the contents into the xlsx table and check if the delimiter was used incorrectly"
-    "列数有误": "has the wrong number of columns:"
+    "列数有误": " has the wrong number of columns:"
     "行数范围有误": ", incorrect file line range:"
     "列数范围有误": ", incorrect file column range:"
     "行号": " line "
