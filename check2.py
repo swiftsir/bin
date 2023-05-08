@@ -1292,8 +1292,8 @@ class File(object):
         :param col_max_num_exp: 正整数，期望最大列数，优先级低于col_num_exp，默认无穷，与col_min_num_exp同时为None表示不检查，忽视ck_row_num
         :param ck_row_base: 布尔值，是否检查行内容，基础检查，默认True
         :param ck_col_base: 布尔值，是否检查列内容，基础检查，默认True
-        :param ck_row_list: 正整数/正整数列表，行内容基础检查，目标行号+，None或0表示全部行,-1表示去掉首行，默认1，即检查首行
-        :param ck_col_list: 正整数/正整数列表，列内容基础检查，目标列号+，None或0表示全部列,-1表示去掉首列，默认1，即检查首列
+        :param ck_row_list: 正整数/正整数列表/行名/行名列表，行内容基础检查，目标行号+，None或0表示全部行,-1表示去掉首行，默认1，即检查首行
+        :param ck_col_list: 正整数/正整数列表/列名/列名列表，列内容基础检查，目标列号+，None或0表示全部列,-1表示去掉首列，默认1，即检查首列
         :param ck_row_length: 布尔值，基础检查，是否检查目标行固定长度，默认True，优先级高于范围检查
         :param ck_row_length_range: 布尔值，基础检查，是否检查目标行长度范围，默认True，ck_row_length=False时生效
         :param ck_row_dup: 布尔值，基础检查，是否检查目标行内重复，默认True
@@ -1322,8 +1322,8 @@ class File(object):
         :param fix_extra: 布尔值，是否允许包含固定内容外的冗余内容，默认False
         :param ck_row_type: 布尔值，是否检查行元素类型，默认False
         :param ck_col_type: 布尔值，是否检查列元素类型，默认False
-        :param ck_row_type_list: 正整数/正整数列表，行元素类型检查行号+，None或0表示全部行,-1表示去掉首行，默认为None
-        :param ck_col_type_list: 正整数/正整数列表，列元素类型检查列号+，None或0表示全部列,-1表示去掉首列，默认为None
+        :param ck_row_type_list: 正整数/正整数列表/行名/行名列表，行元素类型检查行号+，None或0表示全部行,-1表示去掉首行，默认为None
+        :param ck_col_type_list: 正整数/正整数列表/列名/列名列表，列元素类型检查列号+，None或0表示全部列,-1表示去掉首列，默认为None
         :param exp_type: 字符串，期望列表元素类型，限定为python支持的格式,如[int,float,str,bool,...]，默认"float"
         :param rm_first: 布尔值，是否去掉首个元素，仅针对行列元素类型检查及标准化检查有效，当文件有标题行时选True，默认False
         :param ck_row_num_range: 布尔值，行元素类型检查，是否检查数值范围，默认为False，只有数值类型才可以检查范围
@@ -1544,6 +1544,8 @@ class File(object):
                               f"{self._e['必须为']}{_wrap(allowed_title, self_cut=False)},\n" \
                               f"{self._e['实际为']}{in_title}{self._e['请检查']}"
                     error_list.append(err_msg)
+            if error_list:  # (新增按行列名取行/列)确保行列内容检查前需确保行列名存在
+                return error_list
             row_flag = []
             if ck_row_type:
                 if ck_row_type_list == -1:
@@ -1583,7 +1585,7 @@ class File(object):
                     ck_col_type_list = list(range(2, col_number + 1))
                 elif ck_col_type_list is None or ck_col_type_list == 0:
                     ck_col_type_list = list(range(1, col_number + 1))
-                if isinstance(ck_col_type_list, int):
+                if isinstance(ck_col_type_list, int) or isinstance(ck_col_type_list, str):
                     ck_col_type_list = [ck_col_type_list, ]
                 for col in ck_col_type_list:
                     if isinstance(col, int):
@@ -1615,7 +1617,7 @@ class File(object):
                     ck_standard_list = list(range(2, row_number + 1))
                 elif ck_standard_list is None:
                     ck_standard_list = list(range(1, row_number + 1))
-                if isinstance(ck_standard_list, int):
+                if isinstance(ck_standard_list, int) or isinstance(ck_standard_list, str):
                     ck_standard_list = [ck_standard_list, ]
                 if set(ck_standard_list).issubset(set(ck_row_type_list)):
                     for row in ck_standard_list:
@@ -1658,7 +1660,7 @@ class File(object):
                 return error_list
         except Exception as e:
             print(e) if not self.no_log else 1
-            return [f"{self.add_info}检查文件详细内容时出错", ]
+            return [f"{self.add_info}{self._e['check_content']}", ]
 
     def compare_line(self, in_file2,
                      file1_dim="row", file2_dim="row", file1_no=1, file2_no=1,
