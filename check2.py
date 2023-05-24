@@ -12,6 +12,8 @@ Maintenance records:
 * 增加 根据行/列名提取行/列相关功能
 * 增加 行列固定内容检查是否严格顺序、是否允许冗余选项
 * 优化 参数类型限制IDE智能提示
+2023.05.08
+* write_log方法新增列表去重
 """
 # ---- ---- ---- ---- ---- #
 import sys
@@ -24,6 +26,7 @@ import shutil
 import textwrap
 import pandas as pd
 from collections import Counter
+from collections import OrderedDict
 from zipfile import ZipFile
 from functools import wraps
 import yaml
@@ -2339,6 +2342,11 @@ class Tool(object):
         print(__name__, self._c, _name()) if not self.no_log else 1
         if isinstance(log_list, str):
             log_list = [log_list, ]
+        try:
+            unique_log_dict = OrderedDict.fromkeys(log_list)
+            log_list = list(unique_log_dict.keys())
+        except:
+            pass
         with codecs.open(log_file, "w", encoding="UTF-8") as log:
             if add_log:
                 log.write(f"{self._e['write_log']}")
