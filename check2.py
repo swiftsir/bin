@@ -668,10 +668,10 @@ class File(object):
             print(e) if not self.no_log else 1
             return f"{self.add_info}{self._e['null']}"
 
-    def size(self, max_size="50M"):
+    def size(self, max_size="100M"):
         """
         检查文件大小是否超出限制
-         :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
+         :param max_size: 字符串，以K/M结尾，文件大小上限，默认"100M"
         :return: 未超出返回0，超出返回字符串报错信息
         """
         print(__name__, self._c, _name()) if not self.no_log else 1
@@ -782,13 +782,13 @@ class File(object):
     def check_base(self, ck_exist=True, ck_suffix=True, ck_null=True,
                    ck_size=True, ck_encoding=True, use_1=False, do_convert=True,
                    suffix_list: list = None,
-                   max_size="50M",
+                   max_size="100M",
                    allowed_encode: list = None,
                    out_file=None, out_code="UTF-8"):
         """
         文件基础检查（存在，后缀，空文件，大小，编码）,提供转码选项(仅use_1=True消除BOM)，仅当提供一种allowed_encode时有效
         注意：文件编码检查及转码仅对非二进制文件有效，xlsx文件推荐使用file_xlsx2txt函数转换后进行文件检查
-        注意：如果out_file与in_file同路径且同名，将覆盖原文档
+        注意：如果out_file与in_file同路径且同名，将覆盖原文档，其完成检查后将替换文件对象in_file属性为out_file的值
         :param ck_exist: 布尔值，是否检查存在，默认True
         :param ck_suffix: 布尔值，是否检查后缀，默认True
         :param ck_null: 布尔值，是否检查空文件，默认True
@@ -797,9 +797,9 @@ class File(object):
         :param use_1: 布尔值，默认False，True表示使用python.chardet模块推测文件编码，False表示使用linux.file命令获取文件编码
         :param do_convert: 布尔值，当检查到编码格式不符合期望编码格式时，是否进行转码，仅当提供一种allowed_encode时有效，默认True
         :param suffix_list: 字符串/字符串列表，允许使用的格式名，不区分大小写，默认txt
-        :param max_size: 字符串，以K/M结尾，文件大小上限，默认"50M"
+        :param max_size: 字符串，以K/M结尾，文件大小上限，默认"100M"
         :param allowed_encode: 字符串/字符串列表，允许的编码格式，不区分大小写，默认[UTF-8,]，不建议使用ASCII
-        :param out_file: 字符串，输出对象,例如："D:/b.txt"，默认在in_file后添加".convert"
+        :param out_file: 字符串，输出对象,例如："D:/b.txt"，成功完成检查后将替换文件对象的in_file属性为该参数内容
         :param out_code: 字符串，输出文件编码，默认UTF-8
         :return: 符合期望返回0，不符合返回报错信息列表
         """
@@ -833,7 +833,8 @@ class File(object):
                         f"{self.add_info}{self._e['推测']}{self.__name}{self._e['二进制']}")
                 elif do_convert and len(allowed_encode) == 1:
                     if err_msg:
-                        in_code = err_msg  # 当UTF-8文件存在少量中文或特殊符号时，使用use_1=True可能存在识别不准确的问题
+                        in_code = err_msg if err_msg in ["us-ascii"] else "utf-8"
+                        # 当UTF-8文件存在少量中文或特殊符号时，可能存在识别不准
                         # in_code = "UTF-8"  # 云平台前端限制txt文件编码仅可为UTF-8或UTF-8-BOM，这里可默认UTF-8
                     else:
                         in_code = allowed_encode[0]
@@ -845,6 +846,7 @@ class File(object):
                         f"{self.add_info}{self._e['推测编码']}{err_msg}{self._e['或']}ASCII"
                         f"{self._e['转换重试']}{allowed_encode}")
             if len(error_list) == 0:
+                self.in_file = out_file
                 return 0
             else:
                 return error_list
