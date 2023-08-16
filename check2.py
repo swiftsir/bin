@@ -33,6 +33,11 @@ import yaml
 import inspect
 import logging
 import platform
+import time
+import socket
+import base64
+import requests
+from Crypto.Cipher import DES
 from typing import Union
 from typing import List as Li
 
@@ -273,6 +278,50 @@ def _pre_class(cls, quiet=True):
     cls.lang_dic = _load_yaml(os.path.join(os.path.dirname(__file__), YAML), quiet=quiet)
     # print("- 调用", cls.__name__, "检查")  # 仅导入时打印，无意义
     return cls
+
+
+def _get_fail_status_url(task_id: int, ):
+    """
+    根据服务器名称获取既定失败状态反馈请求接口路径
+    :param task_id:
+    :return:
+    """
+    hostname = socket.gethostname()
+    url = None
+    if hostname in ["ypt-cu-ver02"]:  # 测试服计算节点
+        url = "http://172.16.0.106:8222/api/inner/task/set_fail_status"
+    elif hostname in ["ypt-cu-0001", "ypt-cu-0002", "ypt-cu-0003"]:  # 生产服计算节点
+        url = "http://10.10.0.18:8222/api/inner/task/set_fail_status"
+    else:
+        print(f"Warning: Task {task_id} is submitted at {hostname}, "
+              f"which doesn't support return fail status, maybe the check module needs to be updated")
+    return url
+
+
+def _request(request_url, request_data, password: str = None, method="POST"):
+    """
+    拉取/推送信息
+    :param request_url: 请求接口路径
+    :param request_data: json请求信息
+    :param password:
+    :param method: POST/GET
+    :return:
+    """
+    try:
+        tm = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
+        password = bytes(password, encoding="utf-8")
+        cipher = DES.new(password, DES.MODE_ECB)
+        bs = 8
+        encrypted = cipher.encrypt(bytes(tm + (bs - len(tm) % bs) * chr(bs - len(tm) % bs), encoding="utf-8"))
+        token = base64.b64encode(encrypted)
+    except Exception as e:
+        print(Exception, ":", e)
+        return
+    headers = {"Content-Type": "application/json", "token": token}
+    if method == "POST":
+        return requests.post(url=request_url, json=request_data, headers=headers)
+    elif method == "GET":
+        return requests.get(url=request_url, json=request_data, headers=headers)
 
 
 @_pre_class
@@ -2118,6 +2167,35 @@ class Tool(object):
 
     def __str__(self):
         return '(add：{0.add_info!s},  quiet：{0.no_log!s}, lang：{0.lang!s})'.format(self)
+
+    def set_status(self, task: int, status: int = 1):
+        """
+        支持计算节点反馈任务状态，仅失败任务需要调用
+        :param task: 正整数，指定task_id
+        :param status: 整数，指定任务失败状态，1.未分类问题 2.文件问题 3.参数问题 4.资源不足 5.脚本bug， 默认1
+        :return:
+        """
+        print(__name__, self._c, _name()) if not self.no_log else 1
+        try:
+            task = int(task)
+            status = int(status)
+            info_dict = {"id": task, "fail_status": status}
+            if status not in [1, 2, 3, 4, 5]:
+                print(f"Warning: No support status {status}, fail status isn't reported")
+                return
+            url = _get_fail_status_url(task_id=task)
+            if not url:
+                print("Warning: No url available, fail status isn't reported")
+                return
+            response = _request(request_url=url, request_data=info_dict, password="zTzqYUt2", method="POST")
+            response_data = response.json()
+            print(response_data)
+            if response_data["code"] == 10000 and response_data["subCode"] == "success":
+                print("\nRequest succeeded\n")
+            else:
+                print("\nERROR: Request falied.\n")
+        except Exception as e:
+            print(e) if not self.no_log else 1
 
     def del_all(self, path, self_contain=False):
         """
